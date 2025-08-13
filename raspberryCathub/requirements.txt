@@ -1,0 +1,51 @@
+# Librerías básicas de Python
+datetime
+threading
+json
+os
+time
+
+# Base de datos
+pymongo==4.13.2
+psycopg2-binary==2.9.10
+
+# Comunicación serial
+pyserial==3.5
+
+# Procesamiento de imágenes y visión computacional
+opencv-python==4.12.0.88
+numpy==2.2.6
+
+# Utilidades
+PyYAML==6.0.2
+
+# Para manejo de fechas
+iso8601==2.1.0
+
+# DNS para MongoDB
+dnspython==2.7.0
+
+# GPIO para Raspberry Pi (opcional, solo si se ejecuta en RPi)
+# RPi.GPIO==0.7.1
+
+# Web framework para API REST (opcional)
+# flask==3.0.0
+# flask-cors==5.0.0
+
+# Cliente MQTT para comunicación IoT (opcional)  
+# paho-mqtt==2.1.0
+
+# Logging avanzado
+# loguru==0.7.2
+
+# Configuración desde archivos
+# python-decouple==3.8
+
+# Para manejo de imágenes adicional
+# Pillow==11.0.0
+
+# Cliente HTTP para APIs externas
+# requests==2.32.3
+
+# Validación de datos
+# pydantic==2.10.4

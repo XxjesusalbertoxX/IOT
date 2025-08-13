@@ -1,0 +1,29 @@
+[
+  {
+    "id": "NA01",
+    "valor_actual": 65.8,
+    "estado": "normal",
+    "timestamp": "2025-08-10T10:30:00",
+    "unidad": "%",
+    "capacidad_maxima_ml": 1500,
+    "ml_restantes": 987.0
+  },
+  {
+    "id": "NA01",
+    "valor_actual": 63.2,
+    "estado": "normal",
+    "timestamp": "2025-08-10T10:45:00",
+    "unidad": "%", 
+    "capacidad_maxima_ml": 1500,
+    "ml_restantes": 948.0
+  },
+  {
+    "id": "NA01",
+    "valor_actual": 61.1,
+    "estado": "normal",
+    "timestamp": "2025-08-10T11:00:00",
+    "unidad": "%",
+    "capacidad_maxima_ml": 1500,
+    "ml_restantes": 916.5
+  }
+]

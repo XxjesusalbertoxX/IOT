@@ -1,0 +1,48 @@
+# CatHub Weight Sensor Configuration
+# Configuración para el servicio de sensor de peso
+
+serial:
+  port: '/dev/ttyACM0'  # Puerto serie del Arduino (ajustar según sistema)
+  baudrate: 115200      # Velocidad de comunicación
+  timeout: 1.0          # Timeout de lectura en segundos
+
+sensors:
+  weight:
+    weight_threshold: 5.0      # Threshold mínimo de cambio de peso (gramos)
+    stability_timeout: 10      # Tiempo para considerar peso inestable (segundos)
+    min_weight_alert: 10.0     # Peso mínimo para generar alerta (gramos)
+    max_weight_alert: 5000.0   # Peso máximo para generar alerta (gramos)
+    debug: false               # Habilitar logging detallado
+    auto_tare: true           # Realizar tara automática al iniciar
+
+mongodb:
+  hosts:
+    - 'localhost:27017'
+    - 'mongodb-replica1:27017'
+    - 'mongodb-replica2:27017'
+  database: 'cathub_iot'
+  collection: 'weight_sensor_data'
+  replica_set: 'rs0'                    # Nombre del replica set
+  username: 'cathub_user'              # Usuario de MongoDB (null si no requiere auth)
+  password: 'cathub_password'          # Password de MongoDB (null si no requiere auth)
+  auth_source: 'cathub_iot'            # Database de autenticación
+  max_retries: 5                       # Máximo número de reintentos de conexión
+  retry_delay: 5.0                     # Delay entre reintentos (segundos)
+  connection_timeout: 10.0             # Timeout de conexión (segundos)
+  enable_offline: true                 # Habilitar almacenamiento offline
+  offline_db_path: '/tmp/cathub_weight_offline.db'  # Path de base de datos offline
+  ttl_hours: 24                        # TTL para documentos (horas, null para deshabilitar)
+
+device:
+  device_id: 'cathub_weight_sensor_01'
+  location: 'food_bowl'
+
+logging:
+  level: 'INFO'
+  log_file: '/var/log/cathub_weight_sensor.log'
+
+# Configuración de alertas adicionales
+alerts:
+  email_enabled: false
+  webhook_url: null
+  alert_cooldown: 300  # Tiempo mínimo entre alertas del mismo tipo (segundos)
