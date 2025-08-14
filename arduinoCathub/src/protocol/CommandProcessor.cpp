@@ -92,31 +92,34 @@ void CommandProcessor::processLitterboxCommand(const String& jsonCommand) {
   bool success = false;
   String message = "";
   
-  if (action == "move") {
-    float degrees = doc["degrees"] | 0.0;
-    success = litterboxMotor->moveToPosition(degrees);
-    message = "Moviendo " + String(degrees) + " grados";
+  if (action == "fill_litter") {
+    success = litterboxMotor->fillWithLitter();
+    message = success ? "Arena agregada - Estado READY" : "Error llenando arena";
+  }
+  else if (action == "normal_cleaning") {
+    success = litterboxMotor->executeNormalCleaning();
+    message = success ? "Limpieza normal completada" : "Error en limpieza normal";
+  }
+  else if (action == "complete_cleaning") {
+    success = litterboxMotor->executeCompleteCleaning();
+    message = success ? "Limpieza completa - Estado EMPTY" : "Error en limpieza completa";
   }
   else if (action == "block") {
-    success = litterboxMotor->setBlocked(true);
-    message = "Motor bloqueado";
+    success = litterboxMotor->blockMotor();
+    message = "Motor bloqueado por seguridad";
   }
   else if (action == "unblock") {
-    success = litterboxMotor->setBlocked(false);
+    success = litterboxMotor->unblockMotor();
     message = "Motor desbloqueado";
   }
-  else if (action == "enable") {
-    success = litterboxMotor->setEnabled(true);
-    message = "Motor habilitado";
+  else if (action == "get_status") {
+    protocol.sendOK("litterbox", litterboxMotor->getStatus());
+    return;
   }
-  else if (action == "disable") {
-    success = litterboxMotor->setEnabled(false);
-    message = "Motor deshabilitado";
-  }
-  else if (action == "emergencyStop") {
+  else if (action == "emergency_stop") {
     litterboxMotor->emergencyStop();
     success = true;
-    message = "Parada de emergencia ejecutada";
+    message = "PARADA DE EMERGENCIA ejecutada";
   }
   else {
     protocol.sendError("litterbox", "Acción desconocida: " + action);
@@ -129,7 +132,6 @@ void CommandProcessor::processLitterboxCommand(const String& jsonCommand) {
     protocol.sendError("litterbox", "Error ejecutando: " + action);
   }
 }
-
 void CommandProcessor::processFeederCommand(const String& jsonCommand) {
   StaticJsonDocument<512> doc;
   deserializeJson(doc, jsonCommand);

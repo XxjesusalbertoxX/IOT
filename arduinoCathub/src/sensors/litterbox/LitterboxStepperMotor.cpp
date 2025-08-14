@@ -1,114 +1,81 @@
-#include "LitterboxStepperMotor.h"
+#ifndef LITTERBOX_STEPPER_MOTOR_H
+#define LITTERBOX_STEPPER_MOTOR_H
 
-LitterboxStepperMotor::LitterboxStepperMotor() : 
-    motorEnabled(false), motorReady(false), currentPosition(0), 
-    direction(true), isCleaningCycle(false) {}
+#include <Arduino.h>
+#include "../../config/MotorConfigs.h"
 
-bool LitterboxStepperMotor::initialize() {
-    pinMode(DIR_PIN, OUTPUT);
-    pinMode(EN_PIN, OUTPUT);
-    pinMode(PULL_PIN, OUTPUT);
+class LitterboxStepperMotor {
+private:
+    static const int DIR_PIN = 15;    // Dirección
+    static const int EN_PIN = 16;     // Enable (activo LOW)  
+    static const int PULL_PIN = 17;   // Pulsos (Step)
     
-    // Inicializar en estado seguro
-    digitalWrite(EN_PIN, HIGH);   // Deshabilitado
-    digitalWrite(DIR_PIN, HIGH);  // Dirección por defecto
-    digitalWrite(PULL_PIN, LOW);  // Pulso en bajo
+    static const unsigned long STEP_DELAY_US = 1000;
+    static const int STEPS_PER_REVOLUTION = 200;
     
-    motorReady = true;
-    return true;
-}
-
-void LitterboxStepperMotor::enable() {
-    if (motorReady) {
-        digitalWrite(EN_PIN, LOW); // Activo LOW
-        motorEnabled = true;
-        delay(10);
-    }
-}
-
-void LitterboxStepperMotor::disable() {
-    digitalWrite(EN_PIN, HIGH);
-    motorEnabled = false;
-    isCleaningCycle = false;
-}
-
-void LitterboxStepperMotor::setDirection(bool clockwise) {
-    direction = clockwise;
-    digitalWrite(DIR_PIN, clockwise ? HIGH : LOW);
-    delayMicroseconds(5);
-}
-
-void LitterboxStepperMotor::step(int steps) {
-    if (!motorEnabled || !motorReady) return;
+    // Estados del arenero
+    enum LitterboxState {
+        EMPTY = 0,           // Sin arena, sin torque
+        READY = 1,           // Con arena, con torque, listo para usar
+        BLOCKED = -1         // Bloqueado por condiciones inseguras
+    };
     
-    for (int i = 0; i < abs(steps); i++) {
-        digitalWrite(PULL_PIN, HIGH);
-        delayMicroseconds(STEP_DELAY_US / 2);
-        digitalWrite(PULL_PIN, LOW);
-        delayMicroseconds(STEP_DELAY_US / 2);
-        
-        currentPosition += (direction ? 1 : -1);
-    }
-}
-
-void LitterboxStepperMotor::rotate(float degrees) {
-    int steps = (int)((degrees / 360.0) * STEPS_PER_REVOLUTION);
-    setDirection(degrees > 0);
-    step(abs(steps));
-}
-
-void LitterboxStepperMotor::startCleaningCycle() {
-    if (!motorEnabled || !motorReady) return;
+    enum CleaningType {
+        NORMAL_CLEAN,        // 270° derecha + regreso
+        COMPLETE_CLEAN       // 80° izquierda + regreso + quitar torque
+    };
     
-    isCleaningCycle = true;
-    Serial.println("{\"device\":\"LITTERBOX\",\"action\":\"CLEANING_START\"}");
-}
-
-void LitterboxStepperMotor::stopCleaningCycle() {
-    isCleaningCycle = false;
-    Serial.println("{\"device\":\"LITTERBOX\",\"action\":\"CLEANING_STOP\"}");
-}
-
-void LitterboxStepperMotor::siftLitter() {
-    if (!motorEnabled || !motorReady) return;
+    // Estado del motor
+    bool motorEnabled;
+    bool motorReady;
+    bool torqueActive;
+    int currentPosition;
+    bool direction;
+    LitterboxState currentState;
     
-    Serial.println("{\"device\":\"LITTERBOX\",\"action\":\"SIFTING_START\"}");
+    // Posiciones de referencia
+    int homePosition;        // Posición inicial (0°)
+    int readyPosition;       // Posición con arena (-40°)
     
-    // Ciclo de tamizado: 3 rotaciones lentas en cada dirección
-    for (int cycle = 0; cycle < 3; cycle++) {
-        // Hacia adelante
-        setDirection(true);
-        rotate(180); // Media vuelta
-        delay(500);
-        
-        // Hacia atrás
-        setDirection(false);
-        rotate(180); // Media vuelta de regreso
-        delay(500);
-    }
+public:
+    LitterboxStepperMotor();
+    bool initialize();
     
-    Serial.println("{\"device\":\"LITTERBOX\",\"action\":\"SIFTING_COMPLETE\"}");
-}
+    // Control de estados principales
+    bool fillWithLitter();              // Estado 0 -> 1 (llenar arena)
+    bool executeNormalCleaning();       // Limpieza normal (270° derecha)
+    bool executeCompleteCleaning();     // Limpieza completa (80° izquierda)
+    bool blockMotor();                  // Bloquear por condiciones inseguras
+    bool unblockMotor();               // Desbloquear cuando sea seguro
+    
+    // Control de torque
+    bool enableTorque();
+    bool disableTorque();
+    
+    // Movimientos específicos
+    bool moveToHome();                  // Ir a posición inicial (0°)
+    bool moveToReady();                 // Ir a posición lista (-40°)
+    bool rotateRight(int degrees);      // Girar derecha
+    bool rotateLeft(int degrees);       // Girar izquierda
+    
+    // Getters de estado
+    int getState() const { return static_cast<int>(currentState); }
+    bool isBlocked() const { return currentState == BLOCKED; }
+    bool isReady() const { return currentState == READY; }
+    bool isEmpty() const { return currentState == EMPTY; }
+    bool isTorqueActive() const { return torqueActive; }
+    int getCurrentPosition() const { return currentPosition; }
+    String getStateString() const;
+    String getStatus();
+    
+    // Control de emergencia
+    void emergencyStop();
+    
+private:
+    void setDirection(bool clockwise);
+    void step(int steps);
+    int degreesToSteps(int degrees);
+    bool moveToPosition(int targetPosition);
+};
 
-bool LitterboxStepperMotor::isEnabled() {
-    return motorEnabled;
-}
-
-bool LitterboxStepperMotor::isReady() {
-    return motorReady;
-}
-
-bool LitterboxStepperMotor::isCleaning() {
-    return isCleaningCycle;
-}
-
-String LitterboxStepperMotor::getStatus() {
-    if (!motorReady) return "NOT_INITIALIZED";
-    if (isCleaningCycle) return "CLEANING";
-    if (motorEnabled) return "ENABLED";
-    return "DISABLED";
-}
-
-int LitterboxStepperMotor::getCurrentPosition() {
-    return currentPosition;
-}
+#endif
