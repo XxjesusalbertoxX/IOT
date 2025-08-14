@@ -11,9 +11,9 @@ from typing import Dict, Any, Optional, Tuple
 import threading
 
 from communication.arduino_serial import ArduinoSerial
-from sensors.litterbox.presence_sensor import PresenceSensor
-from sensors.litterbox.humidity_sensor import HumiditySensor  
-from sensors.litterbox.gas_sensor import GasSensor
+from sensors.litterbox.presence_sensor import LitterboxPresenceSensor
+from sensors.litterbox.humidity_sensor import LitterboxHumiditySensor  
+from sensors.litterbox.gas_sensor import LitterboxGasSensor
 
 class LitterboxState(IntEnum):
     EMPTY = 0      # Sin arena, sin torque
@@ -36,9 +36,9 @@ class LitterboxController:
         self.arduino = arduino_serial
         
         # ✅ SENSORES REQUERIDOS
-        self.presence_sensor = PresenceSensor(self.arduino)
-        self.humidity_sensor = HumiditySensor(self.arduino)
-        self.gas_sensor = GasSensor(self.arduino)
+        self.presence_sensor = LitterboxPresenceSensor(self.arduino)
+        self.humidity_sensor = LitterboxHumiditySensor(self.arduino)
+        self.gas_sensor = LitterboxGasSensor(self.arduino)
         
         # ✅ ESTADO ACTUAL
         self.current_state = LitterboxState.EMPTY

@@ -22,7 +22,7 @@ class ArduinoSerial:
     5. Thread-safe para múltiples sensores
     """
     
-    def __init__(self, port: str = '/dev/ttyUSB0', baudrate: int = 9600):
+    def __init__(self, port: str = '/dev/ttyACM0', baudrate: int = 9600):
         self.logger = logging.getLogger(__name__)
         
         # ✅ CONFIGURACIÓN SERIAL
