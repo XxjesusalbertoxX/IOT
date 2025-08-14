@@ -1,25 +1,25 @@
 #ifndef COMMAND_PROCESSOR_H
 #define COMMAND_PROCESSOR_H
 
-#include <Arduino.h>
-#include "../state/ConfigStore.h"
-#include "../sensors/SensorManager.h"
+#include "../sensors/litterbox/LitterboxStepperMotor.h"
+#include "OptimizedProtocol.h"
 
 class CommandProcessor {
 private:
-    ConfigStore& configStore;
-    SensorManager& sensorManager;
-    
-    void processCommand(String command);
-    void sendWeightData();
-    void tareWeightSensor();
-    void calibrateWeightSensor(float knownWeight);
-    void showHelp();
-    
+  LitterboxStepperMotor* litterboxMotor;
+  OptimizedProtocol protocol;
+  
+  // Procesar comandos específicos por dispositivo
+  void processLitterboxCommand(const String& jsonCommand);
+  void processFeederCommand(const String& jsonCommand);
+  void processEmergencyCommand(const String& jsonCommand);
+  
 public:
-    CommandProcessor(ConfigStore& config, SensorManager& sensors);
-    void begin();
-    void poll();
+  CommandProcessor(LitterboxStepperMotor* lbMotor);
+  
+  void initialize();
+  void processCommand(const String& jsonCommand);
+  void update(); // Llamar en loop()
 };
 
 #endif

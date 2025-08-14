@@ -1,91 +1,95 @@
 #include "CommandProcessor.h"
+#include "../config/MotorConfigs.h"
 
-CommandProcessor::CommandProcessor(ConfigStore& config, SensorManager& sensors) 
-    : configStore(config), sensorManager(sensors) {}
-
-void CommandProcessor::begin() {
-    Serial.println(F("{\"event\":\"COMMAND_PROCESSOR_READY\"}"));
+CommandProcessor::CommandProcessor(LitterboxStepperMotor* lbMotor) 
+  : litterboxMotor(lbMotor) {
 }
 
-void CommandProcessor::poll() {
-    if (Serial.available()) {
-        String command = Serial.readStringUntil('\n');
-        command.trim();
-        
-        if (command.length() > 0) {
-            processCommand(command);
-        }
-    }
+void CommandProcessor::initialize() {
+  Serial.println("[CommandProcessor] Inicializado - Esperando comandos JSON");
 }
 
-void CommandProcessor::processCommand(String command) {
-    command.trim();
-    command.toUpperCase();
-    
-    if (command == "GET_WEIGHT") {
-        sendWeightData();
-    }
-    else if (command == "TARE") {
-        tareWeightSensor();
-    }
-    else if (command.startsWith("CALIBRATE:")) {
-        float weight = command.substring(10).toFloat();
-        calibrateWeightSensor(weight);
-    }
-    else if (command == "WEIGHT_STATUS" || command == "STATUS") {
-        WeightSensor* ws = sensorManager.getWeightSensor();
-        if (ws) {
-            Serial.println("{\"sensor\":\"weight\",\"ready\":" + String(ws->isReady() ? "true" : "false") + ",\"status\":\"" + ws->getStatus() + "\"}");
-        }
-    }
-    else if (command == "HELP") {
-        showHelp();
-    }
-    else {
-        Serial.println("{\"error\":\"UNKNOWN_COMMAND\",\"command\":\"" + command + "\"}");
-    }
+void CommandProcessor::processCommand(const String& rawCommand) {
+  // Validar formato básico
+  if (!protocol.isValidCommand(rawCommand)) {
+    protocol.sendError("system", "Invalid command format");
+    return;
+  }
+  
+  // Determinar tipo de dispositivo por contenido
+  if (rawCommand.indexOf("litterbox") >= 0 || rawCommand.indexOf("degrees") >= 0) {
+    processLitterboxCommand(rawCommand);
+  }
+  else if (rawCommand.indexOf("feeder") >= 0) {
+    processFeederCommand(rawCommand);
+  }
+  else if (rawCommand.indexOf("emergency") >= 0) {
+    processEmergencyCommand(rawCommand);
+  }
+  else {
+    protocol.sendError("system", "Unknown device command");
+  }
 }
 
-void CommandProcessor::sendWeightData() {
-    WeightSensor* ws = sensorManager.getWeightSensor();
-    if (ws) {
-        float weight = ws->getCurrentWeight();
-        Serial.println("{\"sensor\":\"weight\",\"value\":" + String(weight, 2) + ",\"unit\":\"g\",\"status\":\"" + ws->getStatus() + "\"}");
-    } else {
-        Serial.println("{\"sensor\":\"weight\",\"error\":\"NOT_AVAILABLE\"}");
-    }
+void CommandProcessor::processLitterboxCommand(const String& jsonCommand) {
+  LitterboxCommand command;
+  
+  if (!protocol.parseCommand(jsonCommand, command)) {
+    protocol.sendError("litterbox", "Failed to parse command");
+    return;
+  }
+  
+  // Procesar según la acción
+  bool success = false;
+  String resultMessage = "";
+  
+  if (command.action == "move") {
+    success = litterboxMotor->moveToPosition(command.degrees);
+    resultMessage = "Moving " + String(command.degrees) + " degrees";
+  }
+  else if (command.action == "block") {
+    success = litterboxMotor->setBlocked(true);
+    resultMessage = "Motor blocked";
+  }
+  else if (command.action == "unblock") {
+    success = litterboxMotor->setBlocked(false);
+    resultMessage = "Motor unblocked";
+  }
+  else if (command.action == "disable") {
+    success = litterboxMotor->setEnabled(false);
+    resultMessage = "Motor disabled (no torque)";
+  }
+  else if (command.action == "enable") {
+    success = litterboxMotor->setEnabled(true);
+    resultMessage = "Motor enabled";
+  }
+  else if (command.action == "setState") {
+    success = litterboxMotor->setState(command.state);
+    resultMessage = "State set to " + command.state;
+  }
+  else if (command.action == "setInterval") {
+    success = litterboxMotor->setCleaningInterval(command.cleaningInterval);
+    resultMessage = "Cleaning interval set to " + String(command.cleaningInterval) + " minutes";
+  }
+  else {
+    protocol.sendError("litterbox", "Unknown action: " + command.action);
+    return;
+  }
+  
+  // Enviar respuesta
+  if (success) {
+    protocol.sendOK("litterbox", resultMessage);
+  } else {
+    protocol.sendError("litterbox", "Failed to execute: " + command.action);
+  }
 }
 
-void CommandProcessor::tareWeightSensor() {
-    WeightSensor* ws = sensorManager.getWeightSensor();
-    if (ws) {
-        ws->tare();
-        Serial.println("{\"action\":\"tare\",\"status\":\"OK\"}");
-    } else {
-        Serial.println("{\"action\":\"tare\",\"status\":\"ERROR\",\"message\":\"Sensor not available\"}");
-    }
+void CommandProcessor::processEmergencyCommand(const String& jsonCommand) {
+  litterboxMotor->emergencyStop();
+  protocol.sendOK("system", "Emergency stop executed");
 }
 
-void CommandProcessor::calibrateWeightSensor(float knownWeight) {
-    if (knownWeight > 0) {
-        WeightSensor* ws = sensorManager.getWeightSensor();
-        if (ws) {
-            ws->calibrate(knownWeight);
-            Serial.println("{\"action\":\"calibrate\",\"weight\":" + String(knownWeight) + ",\"status\":\"OK\"}");
-        } else {
-            Serial.println("{\"action\":\"calibrate\",\"status\":\"ERROR\",\"message\":\"Sensor not available\"}");
-        }
-    } else {
-        Serial.println("{\"action\":\"calibrate\",\"status\":\"ERROR\",\"message\":\"Invalid weight\"}");
-    }
-}
-
-void CommandProcessor::showHelp() {
-    Serial.println("{\"help\":\"available_commands\",\"commands\":[");
-    Serial.println("  \"GET_WEIGHT - Get weight sensor reading\",");
-    Serial.println("  \"TARE - Reset weight scale to zero\",");
-    Serial.println("  \"CALIBRATE:XXX - Calibrate weight sensor with XXX grams\",");
-    Serial.println("  \"STATUS - Get sensor status\",");
-    Serial.println("  \"HELP - Show this help\"");
-    Serial.println("]}");
+void CommandProcessor::update() {
+  // Actualizar todos los motores
+  litterboxMotor->update();
 }

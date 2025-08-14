@@ -1,68 +1,121 @@
 #include "FeederUltrasonicSensor.h"
 
-FeederUltrasonicSensor::FeederUltrasonicSensor(int triggerPin, int echoPin, String name) 
-    : trigPin(triggerPin), echoPin(echoPin), sensorName(name), lastDistance(0), lastReadTime(0), sensorReady(false) {}
+// === FeederUltrasonicSensor1 ===
+FeederUltrasonicSensor1::FeederUltrasonicSensor1() : 
+    lastDistance(0.0), lastReadTime(0), sensorReady(false) {}
 
-bool FeederUltrasonicSensor::initialize() {
-    pinMode(trigPin, OUTPUT);
-    pinMode(echoPin, INPUT);
+bool FeederUltrasonicSensor1::initialize() {
+    pinMode(TRIG_PIN, OUTPUT);
+    pinMode(ECHO_PIN, INPUT);
     
-    // Hacer una lectura de prueba
-    digitalWrite(trigPin, LOW);
+    digitalWrite(TRIG_PIN, LOW);
     delayMicroseconds(2);
-    digitalWrite(trigPin, HIGH);
+    digitalWrite(TRIG_PIN, HIGH);
     delayMicroseconds(10);
-    digitalWrite(trigPin, LOW);
+    digitalWrite(TRIG_PIN, LOW);
     
-    long duration = pulseIn(echoPin, HIGH, TIMEOUT_US);
+    long duration = pulseIn(ECHO_PIN, HIGH, TIMEOUT_US);
     
     if (duration > 0) {
         sensorReady = true;
-        lastDistance = (duration * 0.034) / 2; // Convertir a cm
+        lastDistance = (duration * 0.034) / 2;
         return true;
+    } else {
+        sensorReady = false;
+        return false;
     }
-    
-    sensorReady = false;
-    return false;
 }
 
-void FeederUltrasonicSensor::update() {
+void FeederUltrasonicSensor1::update() {
     if (!sensorReady) return;
     
     unsigned long now = millis();
     if (now - lastReadTime >= READ_INTERVAL) {
-        // Enviar pulso
-        digitalWrite(trigPin, LOW);
+        digitalWrite(TRIG_PIN, LOW);
         delayMicroseconds(2);
-        digitalWrite(trigPin, HIGH);
+        digitalWrite(TRIG_PIN, HIGH);
         delayMicroseconds(10);
-        digitalWrite(trigPin, LOW);
+        digitalWrite(TRIG_PIN, LOW);
         
-        // Leer respuesta
-        long duration = pulseIn(echoPin, HIGH, TIMEOUT_US);
+        long duration = pulseIn(ECHO_PIN, HIGH, TIMEOUT_US);
         
         if (duration > 0) {
-            lastDistance = (duration * 0.034) / 2; // Convertir a cm
+            lastDistance = (duration * 0.034) / 2;
         }
-        // Si duration == 0, mantener el último valor válido
         
         lastReadTime = now;
     }
 }
 
-float FeederUltrasonicSensor::getDistance() {
+float FeederUltrasonicSensor1::getDistance() {
     return lastDistance;
 }
 
-bool FeederUltrasonicSensor::isReady() {
+bool FeederUltrasonicSensor1::isReady() {
     return sensorReady;
 }
 
-String FeederUltrasonicSensor::getStatus() {
+String FeederUltrasonicSensor1::getStatus() {
     if (!sensorReady) return "NOT_INITIALIZED";
     return "READY";
 }
 
-String FeederUltrasonicSensor::getName() {
-    return sensorName;
+// === FeederUltrasonicSensor2 ===
+FeederUltrasonicSensor2::FeederUltrasonicSensor2() : 
+    lastDistance(0.0), lastReadTime(0), sensorReady(false) {}
+
+bool FeederUltrasonicSensor2::initialize() {
+    pinMode(TRIG_PIN, OUTPUT);
+    pinMode(ECHO_PIN, INPUT);
+    
+    digitalWrite(TRIG_PIN, LOW);
+    delayMicroseconds(2);
+    digitalWrite(TRIG_PIN, HIGH);
+    delayMicroseconds(10);
+    digitalWrite(TRIG_PIN, LOW);
+    
+    long duration = pulseIn(ECHO_PIN, HIGH, TIMEOUT_US);
+    
+    if (duration > 0) {
+        sensorReady = true;
+        lastDistance = (duration * 0.034) / 2;
+        return true;
+    } else {
+        sensorReady = false;
+        return false;
+    }
+}
+
+void FeederUltrasonicSensor2::update() {
+    if (!sensorReady) return;
+    
+    unsigned long now = millis();
+    if (now - lastReadTime >= READ_INTERVAL) {
+        digitalWrite(TRIG_PIN, LOW);
+        delayMicroseconds(2);
+        digitalWrite(TRIG_PIN, HIGH);
+        delayMicroseconds(10);
+        digitalWrite(TRIG_PIN, LOW);
+        
+        long duration = pulseIn(ECHO_PIN, HIGH, TIMEOUT_US);
+        
+        if (duration > 0) {
+            lastDistance = (duration * 0.034) / 2;
+        }
+        
+        lastReadTime = now;
+    }
+}
+
+float FeederUltrasonicSensor2::getDistance() {
+    return lastDistance;
+}
+
+bool FeederUltrasonicSensor2::isReady() {
+    return sensorReady;
+}
+
+String FeederUltrasonicSensor2::getStatus() {
+    if (!sensorReady) return "NOT_INITIALIZED";
+    return "READY";
 }
