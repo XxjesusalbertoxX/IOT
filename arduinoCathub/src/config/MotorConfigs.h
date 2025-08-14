@@ -6,9 +6,9 @@ struct LitterboxMotorConfig {
   static const int STEPS_PER_REVOLUTION = 200;
   static const int MICROSTEPS = 16;
   static const int TOTAL_STEPS_PER_REV = STEPS_PER_REVOLUTION * MICROSTEPS; // 3200
-  static const float DEFAULT_SPEED = 500.0;          // pasos/seg
-  static const float DEFAULT_ACCELERATION = 200.0;   // aceleración
-  static const float MAX_SPEED = 800.0;              // velocidad máxima
+  static constexpr float DEFAULT_SPEED = 500.0f;          // pasos/seg
+  static constexpr float DEFAULT_ACCELERATION = 200.0f;   // aceleración
+  static constexpr float MAX_SPEED = 800.0f;              // velocidad máxima
   static const int EMERGENCY_TIMEOUT_MS = 5000;      // timeout emergencia
 };
 
@@ -17,8 +17,8 @@ struct FeederMotorConfig {
   static const int STEPS_PER_REVOLUTION = 200;
   static const int MICROSTEPS = 8;
   static const int TOTAL_STEPS_PER_REV = STEPS_PER_REVOLUTION * MICROSTEPS; // 1600
-  static const float DEFAULT_SPEED = 300.0;
-  static const float DEFAULT_ACCELERATION = 150.0;
+  static constexpr float DEFAULT_SPEED = 300.0f;
+  static constexpr float DEFAULT_ACCELERATION = 150.0f;
   static const int STEPS_PER_GRAM = 80;               // pasos por gramo
 };
 

@@ -6,7 +6,7 @@
 
 class LitterboxDHTSensor {
 private:
-    static const int DATA_PIN = 8;        // Pin digital para el sensor DHT
+    static const int DATA_PIN = 21;        // Pin digital para el sensor DHT
     static const int DHT_TYPE = DHT22;    // Tipo de sensor (DHT22 para RQ-S003)
     static const unsigned long READ_INTERVAL = 2000; // DHT necesita al menos 2 segundos entre lecturas
     
