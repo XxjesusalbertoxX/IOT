@@ -8,7 +8,7 @@ import time
 
 def main():
     # Inicializar comunicación
-    arduino = ArduinoSerial(port='/dev/ttyUSB0', baudrate=115200)
+    arduino = ArduinoSerial(port='/dev/ttyACM*', baudrate=115200)
     
     if not arduino.connect():
         print("❌ No se pudo conectar al Arduino")
