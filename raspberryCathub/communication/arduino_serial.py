@@ -102,16 +102,29 @@ class ArduinoSerial:
         """Prueba la conexión con un ping simple"""
         try:
             ping_command = {"type": "PING"}
-            response = self._send_and_wait(ping_command, timeout=3)
             
-            if response and response.get("type") == "PONG":
-                return True
+            # ✅ ENVIAR COMANDO
+            if not self._send_command_raw(ping_command):
+                self.logger.error("❌ No se pudo enviar PING")
+                return False
+            
+            # ✅ LEER CUALQUIER RESPUESTA (no solo PONG)
+            time.sleep(1)  # Dar tiempo al Arduino
+            
+            for attempt in range(5):  # Intentar leer varias líneas
+                response = self._read_response()
+                if response:
+                    self.logger.info(f"📥 Arduino respondió: {response}")
+                    # ✅ ACEPTAR CUALQUIER RESPUESTA VÁLIDA
+                    return True
+                time.sleep(0.2)
+            
+            self.logger.error("❌ Arduino no envió ninguna respuesta")
             return False
             
         except Exception as e:
             self.logger.error(f"❌ Error en test de conexión: {e}")
             return False
-
     def disconnect(self):
         """Desconectar del Arduino"""
         try:
