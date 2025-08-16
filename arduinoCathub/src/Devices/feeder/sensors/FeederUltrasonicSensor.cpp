@@ -1,8 +1,9 @@
 #include "FeederUltrasonicSensor.h"
+#include "../config/SensorIDs.h"
+#include "../../config/DeviceIDs.h"
 
 // === FeederUltrasonicSensor1 ===
-FeederUltrasonicSensor1::FeederUltrasonicSensor1() : 
-    lastDistance(0.0), lastReadTime(0), sensorReady(false) {}
+FeederUltrasonicSensor1::FeederUltrasonicSensor1(const char* id, const char* deviceId) : sensorId(id), deviceId(deviceId), lastDistance(0.0), lastReadTime(0), sensorReady(false) {}
 
 bool FeederUltrasonicSensor1::initialize() {
     pinMode(TRIG_PIN, OUTPUT);
@@ -60,9 +61,14 @@ String FeederUltrasonicSensor1::getStatus() {
     return "READY";
 }
 
-// === FeederUltrasonicSensor2 ===
-FeederUltrasonicSensor2::FeederUltrasonicSensor2() : 
-    lastDistance(0.0), lastReadTime(0), sensorReady(false) {}
+const char* FeederUltrasonicSensor1::getSensorId() {
+    return sensorId; 
+}
+
+
+const char* FeederUltrasonicSensor1::getDeviceId() {
+    return deviceId;
+}
 
 bool FeederUltrasonicSensor2::initialize() {
     pinMode(TRIG_PIN, OUTPUT);
@@ -118,4 +124,12 @@ bool FeederUltrasonicSensor2::isReady() {
 String FeederUltrasonicSensor2::getStatus() {
     if (!sensorReady) return "NOT_INITIALIZED";
     return "READY";
+}
+
+const char* FeederUltrasonicSensor2::getSensorId() {
+   return sensorId;
+}
+
+const char* FeederUltrasonicSensor2::getDeviceId() {
+    return deviceId;
 }

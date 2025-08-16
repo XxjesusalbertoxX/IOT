@@ -2,12 +2,17 @@
 #define LITTERBOX_MQ2_SENSOR_H
 
 #include <Arduino.h>
+#include "../config/SensorIDs.h"
+#include "../../config/DeviceIDs.h"
 
 class LitterboxMQ2Sensor {
 private:
     static const int ANALOG_PIN = A0;
     static const unsigned long READ_INTERVAL = 500;
-    
+
+    const char* sensorId;
+    const char* deviceId;
+
     float lastValue;        // Valor analógico crudo
     float lastPPM;          // Valor convertido a PPM
     unsigned long lastReadTime;
@@ -24,6 +29,8 @@ public:
     float getPPM();         // Valor convertido a PPM
     bool isReady();
     String getStatus();
+    const char* getSensorId();
+    const char* getDeviceId();
 };
 
 #endif

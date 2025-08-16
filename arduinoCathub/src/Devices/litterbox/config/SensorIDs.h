@@ -1,0 +1,3 @@
+#define SENSOR_ID_LITTER_ULTRA    "LUT_001"
+#define SENSOR_ID_LITTER_DHT      "DHT_001"
+#define SENSOR_ID_LITTER_MQ2      "MQ2_001"

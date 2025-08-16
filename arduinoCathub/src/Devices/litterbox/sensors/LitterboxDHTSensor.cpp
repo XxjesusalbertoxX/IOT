@@ -1,4 +1,6 @@
 #include "LitterboxDHTSensor.h"
+#include "../config/SensorIDs.h"
+#include "../../config/DeviceIDs.h"
 
 LitterboxDHTSensor::LitterboxDHTSensor() : dht(DATA_PIN, DHT_TYPE), lastTemperature(0), lastHumidity(0), lastReadTime(0), sensorReady(false) {}
 
@@ -60,4 +62,12 @@ String LitterboxDHTSensor::getStatus() {
     }
     
     return "READY";
+}
+
+const char* LitterboxMQ2Sensor::getSensorId() {
+    return sensorId;
+}
+
+const char* LitterboxMQ2Sensor::getDeviceId() {
+    return deviceId;
 }
