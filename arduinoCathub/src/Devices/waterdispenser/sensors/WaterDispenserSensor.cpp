@@ -1,4 +1,6 @@
 #include "WaterDispenserSensor.h"
+#include "../config/SensorIDs.h"
+#include "../../config/DeviceIDs.h"
 
 WaterDispenserSensor::WaterDispenserSensor() : lastAnalogValue(0), lastReadTime(0), sensorReady(false) {}
 
@@ -57,4 +59,12 @@ bool WaterDispenserSensor::isReady() {
 String WaterDispenserSensor::getStatus() {
     if (!sensorReady) return "NOT_INITIALIZED";
     return "READY";
+}
+
+const char* WaterDispenserSensor::getSensorId() {
+    return sensorId;
+}
+
+const char* WaterDispenserSensor::getDeviceId() {
+    return deviceId;
 }

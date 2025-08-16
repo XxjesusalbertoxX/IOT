@@ -1,8 +1,10 @@
 #include "FeederWeightSensor.h"
+#include "../config/SensorIDs.h"
+#include "../../config/DeviceIDs.h"
 
 const float FeederWeightSensor::CALIBRATION_FACTOR = -7050.0;
 
-FeederWeightSensor::FeederWeightSensor() : currentWeight(0.0), lastReadTime(0), sensorReady(false) {}
+FeederWeightSensor::FeederWeightSensor(const char* id, const char* deviceId) : sensorId(id), deviceId(deviceId), currentWeight(0.0), lastReadTime(0), sensorReady(false) {}
 
 bool FeederWeightSensor::initialize() {
     scale.begin(DOUT_PIN, SCK_PIN);
@@ -58,4 +60,12 @@ String FeederWeightSensor::getStatus() {
     if (!sensorReady) return "NOT_INITIALIZED";
     if (!scale.is_ready()) return "NOT_READY";
     return "READY";
+}
+
+const char* FeederWeightSensor::getSensorId() {
+    return sensorId;
+}
+
+const char* FeederWeightSensor::getDeviceId() {
+    return deviceId;
 }

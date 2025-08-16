@@ -1,4 +1,6 @@
 #include "LitterboxMQ2Sensor.h"
+#include "../config/SensorIDs.h"
+#include "../../config/DeviceIDs.h"
 
 LitterboxMQ2Sensor::LitterboxMQ2Sensor() : lastValue(0), lastPPM(0), lastReadTime(0), sensorReady(false) {}
 
@@ -61,4 +63,12 @@ bool LitterboxMQ2Sensor::isReady() {
 String LitterboxMQ2Sensor::getStatus() {
     if (!sensorReady) return "NOT_INITIALIZED";
     return "READY";
+}
+
+const char* LitterboxMQ2Sensor::getSensorId() {
+    return sensorId;
+}
+
+const char* LitterboxMQ2Sensor::getDeviceId() {
+    return deviceId;
 }

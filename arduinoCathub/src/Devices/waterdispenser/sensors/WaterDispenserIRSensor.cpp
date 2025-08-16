@@ -1,4 +1,6 @@
 #include "WaterDispenserIRSensor.h"
+#include "../config/SensorIDs.h"
+#include "../../config/DeviceIDs.h"
 
 WaterDispenserIRSensor::WaterDispenserIRSensor() : 
     objectDetected(false), lastState(false), lastReadTime(0), 
@@ -67,4 +69,12 @@ String WaterDispenserIRSensor::getStatus() {
     if (!sensorReady) return "NOT_INITIALIZED";
     if (objectDetected) return "OBJECT_DETECTED";
     return "CLEAR";
+}
+
+const char* WaterDispenserIRSensor::getSensorId() {
+    return sensorId;
+}
+
+const char* WaterDispenserIRSensor::getDeviceId() {
+    return deviceId;
 }

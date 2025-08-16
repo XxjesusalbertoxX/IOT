@@ -1,4 +1,6 @@
 #include "LitterboxUltrasonicSensor.h"
+#include "../config/SensorIDs.h"
+#include "../../config/DeviceIDs.h"
 
 LitterboxUltrasonicSensor::LitterboxUltrasonicSensor() : lastDistance(0), lastReadTime(0), sensorReady(false) {}
 
@@ -59,4 +61,18 @@ bool LitterboxUltrasonicSensor::isReady() {
 String LitterboxUltrasonicSensor::getStatus() {
     if (!sensorReady) return "NOT_INITIALIZED";
     return "READY";
+}
+
+bool LitterboxUltrasonicSensor::isCatInside() {
+    // Si la distancia es menor al umbral, hay algo (gato) dentro
+    return sensorReady && lastDistance > 0 && lastDistance < CAT_INSIDE_THRESHOLD_CM;
+}
+
+
+const char* LitterboxUltrasonicSensor::getSensorId() {
+    return sensorId;
+}
+
+const char* LitterboxUltrasonicSensor::getDeviceId() {
+    return deviceId;
 }

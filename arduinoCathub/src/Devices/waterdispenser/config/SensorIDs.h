@@ -1,0 +1,2 @@
+#define SENSOR_ID_WATER_LEVEL     "WLV_001"
+#define SENSOR_ID_WATER_IR        "WIR_001"
