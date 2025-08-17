@@ -25,6 +25,16 @@ void CommandProcessor::processCommand(String command) {
         return;
     }
 
+    // RESPONDER A PING (JSON)
+    if (command.startsWith("{") && command.endsWith("}")) {
+        StaticJsonDocument<64> doc;
+        DeserializationError error = deserializeJson(doc, command);
+        if (!error && doc.containsKey("type") && doc["type"] == "PING") {
+            Serial.println("{\"type\":\"PONG\"}");
+            return;
+        }
+    }
+
     // Formato esperado: "DEVICE:COMMAND:PARAMS"
     int firstColon = command.indexOf(':');
     int secondColon = command.indexOf(':', firstColon + 1);
