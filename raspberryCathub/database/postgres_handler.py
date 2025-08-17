@@ -16,10 +16,10 @@ class PostgresHandler:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
         self.connection_params = {
-            'host': 'localhost',
-            'database': 'cathub_db', 
-            'user': 'cathub_user',
-            'password': 'cathub_password',
+            'host': 'atenasoficial.com',
+            'database': 'db_cathub', 
+            'user': 'admin',
+            'password': 'admin123',
             'port': 5432
         }
 
@@ -44,101 +44,185 @@ class PostgresHandler:
             self.logger.error(f"❌ Error verificando conexión PostgreSQL: {e}")
             return False
 
-    def get_device_id(self, identifier: str) -> Optional[int]:
+    def get_device_identifier(self, code: str) -> Optional[str]:
         """
-        Obtiene device_id para un sensor por su identifier
-        
+        Obtiene el identifier de un dispositivo a partir del código que se ve en la carcasa.
+
         Args:
-            identifier: Identificador del sensor (ej: WSR001, PRS001)
-            
+            code: Código del dispositivo visible al usuario (ej: ARENERO-001)
+
         Returns:
-            device_id o None si no se encuentra
+            identifier o None si no se encuentra
         """
         try:
             conn = self.get_connection()
             if not conn:
                 return None
-                
+
             cursor = conn.cursor()
-            
-            # ✅ SOLO CONSULTAR - NO CREAR
+
             query = """
-                SELECT device_id FROM sensors 
-                WHERE identifier = %s 
-                AND active = true
+                SELECT de.identifier
+                FROM device_codes c
+                JOIN device_environment de
+                  ON c.device_id = de.device_id
+                WHERE c.code = %s
+                  AND de.active = true
                 LIMIT 1
             """
-            
-            cursor.execute(query, (identifier,))
+
+            cursor.execute(query, (code,))
             result = cursor.fetchone()
-            
+
             cursor.close()
             conn.close()
-            
+
             if result:
-                device_id = result[0]
-                self.logger.debug(f"✅ Device ID para {identifier}: {device_id}")
-                return device_id
+                identifier = result[0]
+                self.logger.debug(f"✅ Identifier para code {code}: {identifier}")
+                return identifier
             else:
-                self.logger.warning(f"⚠️ No se encontró device_id para {identifier}")
+                self.logger.warning(f"⚠️ No se encontró identifier para code {code}")
                 return None
-                
-        except psycopg2.Error as e:
-            self.logger.error(f"❌ Error obteniendo device_id para {identifier}: {e}")
+
+        except Exception as e:
+            self.logger.error(f"❌ Error consultando identifier: {e}")
             return None
 
-    def get_mongo_config(self) -> Dict[str, Any]:
+    def get_interval_motor(self, identifier: str) -> Optional[int]:
         """
-        Obtiene configuración de MongoDB desde PostgreSQL
-        
+        Obtiene el intervalo de un motor a partir del identificador.
+
+        Args:
+            identifier: Identificador del motor (ej: ARENERO-001)
+
         Returns:
-            Diccionario con configuración de MongoDB
+            intervalo o None si no se encuentra
+        """
+
+        try:
+            conn = self.get_connection()
+            if not conn:
+                return None
+
+            cursor = conn.cursor()
+
+            query = """
+                SELECT ads.interval
+                FROM device_environment de
+                JOIN actuator_device_environments ade
+                  ON de.device_environment_id = ade.device_environment_id
+                JOIN actuator_device_settings ads
+                  ON ade.actuator_device_environment_id = ads.actuator_device_environment_id
+                WHERE de.identifier = %s
+                  AND de.active = true
+                  AND ade.active = true
+                  AND ads.active = true
+                LIMIT 1
+            """
+            cursor.execute(query, (identifier,))
+            result = cursor.fetchone()
+
+            cursor.close()
+            conn.close()
+
+            if result:
+                interval = result[0]
+                self.logger.debug(f"✅ Interval para code {identifier}: {interval}")
+                return interval
+            else:
+                self.logger.warning(f"⚠️ No se encontró interval para code {identifier}")
+                return None
+
+        except Exception as e:
+            self.logger.error(f"❌ Error consultando interval: {e}")
+            return None
+        
+    def get_status_device_environment(self, identifier: str) -> Optional[bool]:
+        """
+        Obtiene el estado de un dispositivo a partir del identificador.
+
+        Args:
+            identifier: Identificador del dispositivo (ej: ARENERO-001)
+
+        Returns:
+            Estado del dispositivo (True/False) o None si no se encuentra
         """
         try:
             conn = self.get_connection()
             if not conn:
-                return self._get_default_mongo_config()
-                
-            cursor = conn.cursor(cursor_factory=RealDictCursor)
-            
-            # ✅ SOLO CONSULTAR configuración existente
+                return None
+
+            cursor = conn.cursor()
+
             query = """
-                SELECT config_value FROM configurations 
-                WHERE config_key = 'mongodb_connection'
-                AND active = true
+                SELECT de.status
+                FROM device_environment de
+                WHERE de.identifier = %s
                 LIMIT 1
             """
-            
-            cursor.execute(query)
+
+            cursor.execute(query, (identifier,))
             result = cursor.fetchone()
-            
+
             cursor.close()
             conn.close()
-            
-            if result and result['config_value']:
-                config = json.loads(result['config_value'])
-                self.logger.info("✅ Configuración MongoDB obtenida desde PostgreSQL")
-                return config
+
+            if result is not None:
+                status = result[0]
+                self.logger.debug(f"✅ Estado para device {identifier}: {status}")
+                return status
             else:
-                self.logger.warning("⚠️ No hay configuración MongoDB en PostgreSQL, usando defaults")
-                return self._get_default_mongo_config()
-                
+                self.logger.warning(f"⚠️ No se encontró estado para device {identifier}")
+                return None
+
         except Exception as e:
-            self.logger.error(f"❌ Error obteniendo configuración MongoDB: {e}")
-            return self._get_default_mongo_config()
+            self.logger.error(f"❌ Error consultando estado: {e}")
+            return None
 
-    def _get_default_mongo_config(self) -> Dict[str, Any]:
-        """Configuración por defecto de MongoDB"""
-        return {
-            'host': 'cathub.local',
-            'port': 27017,
-            'username': 'admin',
-            'password': 'admin123',
-            'database': 'cathub_db',
-            'auth_source': 'admin'
-        }
+    def get_device_environment_id(self, identifier: str) -> Optional[int]:
+        """
+        Obtiene el ID del entorno del dispositivo a partir del identificador.
 
-    def get_all_sensors(self) -> list:
+        Args:
+            identifier: Identificador del dispositivo (ej: ARENERO-001)
+
+        Returns:
+            ID del entorno del dispositivo o None si no se encuentra
+        """
+        try:
+            conn = self.get_connection()
+            if not conn:
+                return None
+
+            cursor = conn.cursor()
+
+            query = """
+                SELECT de.id
+                FROM device_environment de
+                WHERE de.identifier = %s
+                LIMIT 1
+            """
+
+            cursor.execute(query, (identifier,))
+            result = cursor.fetchone()
+
+            cursor.close()
+            conn.close()
+
+            if result is not None:
+                device_environment_id = result[0]
+                self.logger.debug(f"✅ ID del entorno para device {identifier}: {device_environment_id}")
+                return device_environment_id
+            else:
+                self.logger.warning(f"⚠️ No se encontró ID del entorno para device {identifier}")
+                return None
+
+        except Exception as e:
+            self.logger.error(f"❌ Error consultando ID del entorno: {e}")
+            return None
+
+    def get_all_identified_sensors(self, environment_id: str) -> list:
         """
         Obtiene todos los sensores activos
         
@@ -152,15 +236,14 @@ class PostgresHandler:
                 
             cursor = conn.cursor(cursor_factory=RealDictCursor)
             
-            # ✅ SOLO CONSULTAR sensores existentes
             query = """
-                SELECT device_id, identifier, sensor_name, description, location
-                FROM sensors 
-                WHERE active = true
-                ORDER BY sensor_name, identifier
+                SELECT sensor_identifier
+                FROM environment_sensors
+                WHERE environment_id = %s
+                ORDER BY sensor_identifier
             """
-            
-            cursor.execute(query)
+
+            cursor.execute(query, (environment_id,))
             results = cursor.fetchall()
             
             cursor.close()
@@ -174,42 +257,45 @@ class PostgresHandler:
             self.logger.error(f"❌ Error obteniendo sensores: {e}")
             return []
 
-    def get_sensor_intervals(self) -> Dict[str, int]:
+    def get_device_sensor_setting(self, sensor_id: str) -> Optional[Dict[str, Any]]:
         """
-        Obtiene intervalos de sensores desde PostgreSQL (si están configurados)
-        
+        Obtiene la configuración de un sensor específico en un entorno dado.
+
+        Args:
+            environment_id: ID del entorno
+            sensor_id: ID del sensor
+
         Returns:
-            Diccionario con intervalos por sensor
+            Diccionario con la configuración del sensor o None si no se encuentra
         """
         try:
             conn = self.get_connection()
             if not conn:
-                return {}
-                
+                return None
+
             cursor = conn.cursor(cursor_factory=RealDictCursor)
-            
-            # Consultar intervalos si están configurados en BD
+
             query = """
-                SELECT config_value FROM configurations 
-                WHERE config_key = 'sensor_intervals'
-                AND active = true
+                SELECT dss.value
+                FROM environment_sensors es
+                JOIN device_sensors_settings dss
+                  ON es.id = dss.environment_sensor_id
+                WHERE es.id = %s
                 LIMIT 1
             """
-            
-            cursor.execute(query)
+            cursor.execute(query, (sensor_id,))
             result = cursor.fetchone()
-            
+
             cursor.close()
             conn.close()
-            
-            if result and result['config_value']:
-                intervals = json.loads(result['config_value'])
-                self.logger.info("✅ Intervalos de sensores obtenidos desde PostgreSQL")
-                return intervals
+
+            if result:
+                self.logger.debug(f"✅ Configuración para sensor {sensor_id} en entorno {environment_id}: {result}")
+                return result
             else:
-                self.logger.info("⚠️ No hay intervalos configurados, usando defaults")
-                return {}
-                
+                self.logger.warning(f"⚠️ No se encontró configuración para sensor {sensor_id} en entorno {environment_id}")
+                return None
+
         except Exception as e:
-            self.logger.error(f"❌ Error obteniendo intervalos: {e}")
-            return {}
+            self.logger.error(f"❌ Error obteniendo configuración de sensor: {e}")
+            return None
