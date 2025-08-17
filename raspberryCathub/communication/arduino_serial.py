@@ -107,7 +107,7 @@ class ArduinoSerial:
     def _test_connection(self) -> bool:
         """Prueba la conexión con un ping simple"""
         try:
-            ping_command = {"type": "PING"}
+            ping_command = "PING\n"
             
             # ✅ ENVIAR COMANDO
             if not self._send_command_raw(ping_command):
