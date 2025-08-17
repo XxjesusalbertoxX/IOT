@@ -19,6 +19,12 @@ void CommandProcessor::processCommand(String command) {
     command.trim();
     if (command.length() == 0) return;
 
+    // RESPONDER A PING
+    if (command == "PING") {
+        Serial.println("PONG");
+        return;
+    }
+
     // Formato esperado: "DEVICE:COMMAND:PARAMS"
     int firstColon = command.indexOf(':');
     int secondColon = command.indexOf(':', firstColon + 1);
