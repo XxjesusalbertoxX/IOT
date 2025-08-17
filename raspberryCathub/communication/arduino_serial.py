@@ -6,6 +6,12 @@ import serial
 import json
 import time
 import logging
+
+logging.basicConfig(
+        level=logging.DEBUG,  # Cambia a INFO si quieres menos detalles
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+    )
+    
 import threading
 from typing import Dict, Any, Optional, Union
 from queue import Queue, Empty
