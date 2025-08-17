@@ -2,7 +2,7 @@
 #include "../config/SensorIDs.h"
 #include "../../config/DeviceIDs.h"
 
-WaterDispenserSensor::WaterDispenserSensor() : lastAnalogValue(0), lastReadTime(0), sensorReady(false) {}
+WaterDispenserSensor::WaterDispenserSensor(const char* id, const char* deviceId) : sensorId(id), deviceId(deviceId), lastAnalogValue(0), lastReadTime(0), sensorReady(false) {}
 
 bool WaterDispenserSensor::initialize() {
     pinMode(ANALOG_PIN, INPUT);
@@ -44,11 +44,11 @@ String WaterDispenserSensor::getWaterLevel() {
     if (lastAnalogValue < DRY_THRESHOLD) {
         return "DRY";
     } else if (lastAnalogValue < WET_THRESHOLD) {
-        return "DAMP";
-    } else if (lastAnalogValue < FLOOD_THRESHOLD) {
         return "WET";
-    } else {
+    } else if (lastAnalogValue < FLOOD_THRESHOLD) {
         return "FLOOD";
+    } else {
+        return "UNKNOWN";
     }
 }
 

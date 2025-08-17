@@ -2,7 +2,7 @@
 #include "../config/SensorIDs.h"
 #include "../../config/DeviceIDs.h"
 
-LitterboxUltrasonicSensor::LitterboxUltrasonicSensor() : lastDistance(0), lastReadTime(0), sensorReady(false) {}
+LitterboxUltrasonicSensor::LitterboxUltrasonicSensor(const char* id, const char* deviceId) : lastDistance(0), lastReadTime(0), sensorReady(false) {}
 
 bool LitterboxUltrasonicSensor::initialize() {
     pinMode(TRIG_PIN, OUTPUT);

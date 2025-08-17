@@ -1,4 +1,5 @@
 #include "CommandProcessor.h"
+#include <ArduinoJson.h>
 
 CommandProcessor::CommandProcessor(SensorManager* sensors, LitterboxStepperMotor* motor) 
     : sensorManager(sensors), litterboxMotor(motor), initialized(false), 
@@ -29,7 +30,7 @@ void CommandProcessor::processCommand(String command) {
     if (command.startsWith("{") && command.endsWith("}")) {
         StaticJsonDocument<64> doc;
         DeserializationError error = deserializeJson(doc, command);
-        if (!error && doc.containsKey("type") && doc["type"] == "PING") {
+        if (!error && doc["type"].is<String>() && doc["type"] == "PING") {
             Serial.println("{\"type\":\"PONG\"}");
             return;
         }
@@ -152,7 +153,7 @@ void CommandProcessor::processSensorCommand(String command, String params) {
 void CommandProcessor::processConfigCommand(String command, String params) {
     if (command == "SET_THRESHOLDS") {
         int commaCount = 0;
-        for (int i = 0; i < params.length(); i++) {
+        for (size_t i = 0; i < params.length(); i++) {
             if (params.charAt(i) == ',') commaCount++;
         }
         
@@ -479,6 +480,8 @@ void CommandProcessor::update() {
         Serial.println("{\"real_time_data\":" + sensorManager->getAllReadings() + ",\"motor_state\":" + String(litterboxMotor->getState()) + "}");
         lastDataSend = now;
     }
+    
+    updateFeederControl();
 }
 
 // ...existing code... (mantener todo el código del arenero anterior)
@@ -588,18 +591,7 @@ void CommandProcessor::stopAutoRefill() {
 }
 
 String CommandProcessor::getFeederStatus() {
-    float weight = sensorManager->getFeederWeight();
-    float catDistance = sensorManager->getFeederCatDistance();
-    float foodDistance = sensorManager->getFeederFoodDistance();
-    
-    return "{\"weight\":" + String(weight) + 
-           ",\"cat_eating\":" + String(isCatEating()) + 
-           ",\"has_food\":" + String(hasFood()) + 
-           ",\"needs_refill\":" + String(isFeederNeedsRefill()) + 
-           ",\"motor_running\":" + String(feederMotorRunning) + 
-           ",\"min_weight\":" + String(MIN_WEIGHT_GRAMS) + 
-           ",\"max_weight\":" + String(maxWeightGrams) + "}";
-}
+
     float currentWeight = sensorManager->getFeederWeight();
     float catDistance = sensorManager->getFeederCatDistance();
     float foodDistance = sensorManager->getFeederFoodDistance();
@@ -702,46 +694,32 @@ void CommandProcessor::setFeederThresholds(float minWeight, float maxWeight, flo
     }
 }
 
-void CommandProcessor::update() {
-    // ...existing code... (mantener toda la lógica del arenero)
-    
-    // ✅ AÑADIR CONTROL DEL COMEDERO
-    updateFeederControl();
-}
-
 void CommandProcessor::updateWaterDispenserControl() {
     unsigned long now = millis();
 
-    // Verificar cada 5 segundos
     if (now - lastWaterCheck >= WATER_CHECK_INTERVAL) {
-        String nivel = sensorManager->getWaterLevel(); // "DRY", "WET", "FLOOD"
-        WaterDispenserPump* pump = sensorManager->getWaterPump();
+        String nivel = sensorManager->getWaterLevel();
         bool catDrinking = false;
+        WaterDispenserPump* pump = sensorManager->getWaterPump(); // <--- AGREGA ESTA LÍNEA
 
-        // Verifica si tienes el método en SensorManager:
-        // bool isCatDrinking();
         if (sensorManager->isWaterIRReady()) {
             catDrinking = sensorManager->isCatDrinking();
         }
 
-        // Si está seco, la bomba NO está encendida y NO hay gato, la enciende
         if (nivel == "DRY" && pump && !pump->isPumpRunning() && !catDrinking) {
-            pump->turnOn(WATER_PUMP_TIMEOUT); // Enciende la bomba con timeout de seguridad
+            pump->turnOn(WATER_PUMP_TIMEOUT);
             waterPumpStartTime = now;
             waterPumpRunning = true;
             Serial.println("{\"water_auto\":{\"trigger\":\"LOW_WATER\",\"level\":\"DRY\",\"cat_present\":false}}");
         }
 
-        // Si hay agua y la bomba está encendida, la apaga
         if ((nivel == "WET" || nivel == "FLOOD") && pump && pump->isPumpRunning()) {
             pump->turnOff();
             waterPumpRunning = false;
             Serial.println("{\"water_auto\":{\"complete\":true,\"final_level\":\"" + nivel + "\"}}");
         }
 
-        // Si hay gato, la bomba NO debe encenderse (aunque esté seco)
         if (nivel == "DRY" && catDrinking && pump && pump->isPumpRunning()) {
-            // Opcional: puedes pausar la bomba si el gato se acerca mientras está encendida
             pump->turnOff();
             waterPumpRunning = false;
             Serial.println("{\"water_auto\":{\"paused\":\"CAT_PRESENT\",\"reason\":\"Cat detected, pump stopped for safety\"}}");
@@ -750,7 +728,7 @@ void CommandProcessor::updateWaterDispenserControl() {
         lastWaterCheck = now;
     }
 
-    // Si la bomba lleva mucho tiempo encendida y sigue seco, apaga y alerta
+    // Timeout de la bomba
     WaterDispenserPump* pump = sensorManager->getWaterPump();
     if (pump && pump->isPumpRunning() && (millis() - waterPumpStartTime > WATER_PUMP_TIMEOUT)) {
         String nivel = sensorManager->getWaterLevel();

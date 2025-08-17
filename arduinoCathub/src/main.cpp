@@ -1,7 +1,8 @@
 #include <Arduino.h>
-#include "sensors/SensorManager.h"
+#include "Devices/SensorManager.h"
 #include "protocol/CommandProcessor.h"
-#include "sensors/litterbox/LitterboxStepperMotor.h"
+#include "Devices/litterbox/actuators/LitterboxStepperMotor.h"
+#include "Devices/litterbox/actuators/LitterboxStepperMotor.h"
 
 SensorManager sensorManager;
 LitterboxStepperMotor litterboxMotor;
@@ -23,6 +24,13 @@ void setup() {
 }
 
 void loop() {
+    if (Serial.available()) {
+        String cmd = Serial.readStringUntil('\n');
+        cmd.trim();
+        if (cmd == "PING") {
+            Serial.println("PONG");
+        }
+    }
     // ✅ SIEMPRE actualizar sensores para que tengan datos frescos
     sensorManager.poll();
     

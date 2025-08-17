@@ -2,7 +2,7 @@
 #include "../config/SensorIDs.h"
 #include "../../config/DeviceIDs.h"
 
-LitterboxDHTSensor::LitterboxDHTSensor() : dht(DATA_PIN, DHT_TYPE), lastTemperature(0), lastHumidity(0), lastReadTime(0), sensorReady(false) {}
+LitterboxDHTSensor::LitterboxDHTSensor(const char* id, const char* deviceId) : dht(DATA_PIN, DHT_TYPE), lastTemperature(0), lastHumidity(0), lastReadTime(0), sensorReady(false) {}
 
 bool LitterboxDHTSensor::initialize() {
     dht.begin();
@@ -64,10 +64,10 @@ String LitterboxDHTSensor::getStatus() {
     return "READY";
 }
 
-const char* LitterboxMQ2Sensor::getSensorId() {
+const char* LitterboxDHTSensor::getSensorId() {
     return sensorId;
 }
 
-const char* LitterboxMQ2Sensor::getDeviceId() {
+const char* LitterboxDHTSensor::getDeviceId() {
     return deviceId;
 }

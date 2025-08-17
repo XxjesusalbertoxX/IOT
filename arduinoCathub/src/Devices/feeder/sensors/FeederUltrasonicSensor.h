@@ -20,7 +20,7 @@ private:
     bool sensorReady;
     
 public:
-    FeederUltrasonicSensor1(const char* id = FEEDER_ULTRASONIC_SENSOR_1_ID, const char* deviceId = DEVICE_ID_FEEDER);
+    FeederUltrasonicSensor1(const char* id, const char* deviceId);
     bool initialize();
     void update();
     float getDistance();
@@ -45,7 +45,7 @@ private:
     bool sensorReady;
     
 public:
-    FeederUltrasonicSensor2(const char* id = FEEDER_ULTRASONIC_SENSOR_2_ID, const char* deviceId = DEVICE_ID_FEEDER);
+    FeederUltrasonicSensor2(const char* id, const char* deviceId);
     bool initialize();
     void update();
     float getDistance();

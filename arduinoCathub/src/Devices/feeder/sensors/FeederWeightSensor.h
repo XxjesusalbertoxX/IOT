@@ -21,7 +21,7 @@ private:
     bool sensorReady;
     
 public:
-    FeederWeightSensor(const char* id = FEEDER_WEIGHT_SENSOR_ID, const char* deviceId = DEVICE_ID_FEEDER);
+    FeederWeightSensor(const char* id = SENSOR_ID_FEEDER_WEIGHT, const char* deviceId = DEVICE_ID_FEEDER);
     bool initialize();
     void update();
     float getCurrentWeight();

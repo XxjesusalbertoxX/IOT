@@ -1,5 +1,7 @@
 #include "SensorManager.h"
 #include "feeder/config/SensorIDs.h"
+#include "litterbox/config/SensorIDs.h"
+#include "waterdispenser/config/SensorIDs.h"
 #include "config/DeviceIDs.h" 
 
 // ===== CONSTRUCTOR Y DESTRUCTOR =====
@@ -11,14 +13,14 @@ SensorManager::SensorManager() : initialized(false), lastUpdateTime(0) {
     litterboxMotor = new LitterboxStepperMotor();
 
     // Sensores del comedero
-    FeederWeightSensor* weightSensor = new FeederWeightSensor(FEEDER_WEIGHT_SENSOR_ID, DEVICE_ID_FEEDER);
-    FeederUltrasonicSensor1* feederUltrasonic1 = new FeederUltrasonicSensor1(FEEDER_ULTRASONIC1_ID, DEVICE_ID_FEEDER);
-    FeederUltrasonicSensor2* feederUltrasonic2 = new FeederUltrasonicSensor2(FEEDER_ULTRASONIC2_ID, DEVICE_ID_FEEDER);
+    weightSensor = new FeederWeightSensor(SENSOR_ID_FEEDER_WEIGHT, DEVICE_ID_FEEDER);
+    feederUltrasonic1 = new FeederUltrasonicSensor1(SENSOR_ID_FEEDER_SONIC1, DEVICE_ID_FEEDER);
+    feederUltrasonic2 = new FeederUltrasonicSensor2(SENSOR_ID_FEEDER_SONIC2, DEVICE_ID_FEEDER);
     feederMotor = new FeederStepperMotor();
 
     // Sensores del bebedero
-    waterSensor = new WaterDispenserSensor(WATER_SENSOR_ID, DEVICE_ID_WATER);
-    waterIRSensor = new WaterDispenserIRSensor(WATER_IR_SENSOR_ID, DEVICE_ID_WATER);
+    waterSensor = new WaterDispenserSensor(SENSOR_ID_WATER_LEVEL, DEVICE_ID_WATER);
+    waterIRSensor = new WaterDispenserIRSensor(SENSOR_ID_WATER_IR, DEVICE_ID_WATER);
     waterPump = new WaterDispenserPump();
 }
 
@@ -135,9 +137,11 @@ FeederStepperMotor* SensorManager::getFeederMotor() {
 }
 
 // ===== MÉTODOS DEL BEBEDERO =====
-float SensorManager::getWaterLevel() {
-    if (waterSensor && waterSensor->isReady()) return waterSensor->getAnalogValue();
-    return -1.0;
+String SensorManager::getWaterLevel() {
+    if (waterSensor && waterSensor->isReady()) {
+        return waterSensor->getWaterLevel(); // Esta función debe retornar un String descriptivo
+    }
+    return "NOT_READY";
 }
 bool SensorManager::isWaterDetected() {
     if (waterSensor && waterSensor->isReady()) return waterSensor->isWaterDetected();
