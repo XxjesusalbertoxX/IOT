@@ -3,14 +3,15 @@
 CommandProcessor::CommandProcessor(SensorManager* sensors, LitterboxStepperMotor* motor) 
     : sensorManager(sensors), litterboxMotor(motor), initialized(false),
       deviceIdentifier(""), deviceType_str(""), deviceConfigured(false),
-      thresholdsConfiguredByRaspberry(false), lastConfigUpdate(0),
-      maxWeightGrams(500.0f), minWeightGrams(150.0f),
-      catEatingThreshold(15.0f), foodEmptyDistance(8.0f),
-      foodFullDistance(2.0f), feederThresholdsConfigured(false),
-      feederAutoRefillEnabled(true), lastFeederCheck(0),
-      feederMotorStartTime(0), feederMotorRunning(false),
-      lastWeightBeforeRefill(0.0), lastWaterCheck(0),
-      waterPumpStartTime(0), waterPumpRunning(false), lastAutoCleanTime(0) {
+      catDetectionDistance(DEFAULT_CAT_DETECTION_DISTANCE), catPresentThreshold(DEFAULT_CAT_PRESENT_THRESHOLD),
+      maxGasPPM(DEFAULT_MAX_GAS_PPM), maxHumidity(DEFAULT_MAX_HUMIDITY), minHumidity(DEFAULT_MIN_HUMIDITY),
+      maxTemperature(DEFAULT_MAX_TEMPERATURE), minTemperature(DEFAULT_MIN_TEMPERATURE),
+      thresholdsConfiguredByRaspberry(false), lastConfigUpdate(0), lastAutoCleanTime(0),
+      maxWeightGrams(500.0f), minWeightGrams(150.0f), catEatingThreshold(15.0f), 
+      foodEmptyDistance(8.0f), foodFullDistance(2.0f), feederThresholdsConfigured(false),
+      feederAutoRefillEnabled(true), lastFeederCheck(0), feederMotorStartTime(0),
+      feederMotorRunning(false), lastWeightBeforeRefill(0.0),
+      lastWaterCheck(0), waterPumpStartTime(0), waterPumpRunning(false) {
     
     initializeDefaultThresholds();
     
@@ -239,21 +240,22 @@ void CommandProcessor::sendAllSensorReadingsWithIdentifiers() {
 
 bool CommandProcessor::areAllSensorsReady() {
     if (deviceType_str == "litterbox") {
-        return sensorManager->getLitterboxUltrasonicSensor()->isReady() &&
-               sensorManager->getLitterboxDHTSensor()->isReady() &&
-               sensorManager->getLitterboxMQ2Sensor()->isReady();
+        return sensorManager->isLitterboxUltrasonicReady() &&
+               sensorManager->isLitterboxDHTReady() &&
+               sensorManager->isLitterboxMQ2Ready();
     }
     else if (deviceType_str == "feeder") {
-        return sensorManager->getFeederWeightSensor()->isReady() &&
-               sensorManager->getFeederUltrasonic1()->isReady() &&
-               sensorManager->getFeederUltrasonic2()->isReady();
+        return sensorManager->isFeederWeightReady() &&
+               sensorManager->isFeederCatUltrasonicReady() &&
+               sensorManager->isFeederFoodUltrasonicReady();
     }
     else if (deviceType_str == "waterdispenser") {
-        return sensorManager->getWaterSensor()->isReady() &&
-               sensorManager->getWaterIRSensor()->isReady();
+        return sensorManager->isWaterLevelReady() &&
+               sensorManager->isWaterIRReady();
     }
     
-    return false;
+    // Si no hay tipo específico, verificar todos los sensores
+    return sensorManager->areAllSensorsReady();
 }
 
 // ===== GESTIÓN DE UMBRALES =====
@@ -611,4 +613,92 @@ void CommandProcessor::updateWaterDispenserControl() {
             Serial.println("{\"water_error\":\"NO_WATER_IN_RESERVOIR\"}");
         }
     }
+}
+
+// ===== IMPLEMENTACIONES FALTANTES =====
+void CommandProcessor::processLitterboxCommand(String command, String params) {
+    if (command == "CLEAN") {
+        if (isCatPresent()) {
+            Serial.println("{\"device\":\"LITTERBOX\",\"command\":\"CLEAN\",\"success\":false,\"reason\":\"CAT_PRESENT\"}");
+            return;
+        }
+        
+        if (!isLitterboxClean()) {
+            Serial.println("{\"device\":\"LITTERBOX\",\"command\":\"CLEAN\",\"success\":false,\"reason\":\"NOT_SAFE_TO_CLEAN\"}");
+            return;
+        }
+        
+        // Iniciar limpieza
+        bool cleaningStarted = litterboxMotor->executeNormalCleaning();
+        if (cleaningStarted) {
+            Serial.println("{\"device\":\"LITTERBOX\",\"command\":\"CLEAN\",\"success\":true,\"status\":\"CLEANING_STARTED\"}");
+        } else {
+            Serial.println("{\"device\":\"LITTERBOX\",\"command\":\"CLEAN\",\"success\":false,\"reason\":\"MOTOR_ERROR\"}");
+        }
+        
+    } else if (command == "STATUS") {
+        String response = "{";
+        response += "\"device\":\"LITTERBOX\",";
+        response += "\"cat_present\":" + String(isCatPresent() ? "true" : "false") + ",";
+        response += "\"clean\":" + String(isLitterboxClean() ? "true" : "false") + ",";
+        response += "\"distance\":" + String(sensorManager->getLitterboxDistance()) + ",";
+        response += "\"temperature\":" + String(sensorManager->getLitterboxTemperature()) + ",";
+        response += "\"humidity\":" + String(sensorManager->getLitterboxHumidity()) + ",";
+        response += "\"gas_ppm\":" + String(sensorManager->getLitterboxGasPPM());
+        response += "}";
+        Serial.println(response);
+    }
+}
+
+void CommandProcessor::processConfigCommand(String command, String params) {
+    if (command == "SET_THRESHOLDS") {
+        // Implementar configuración de umbrales
+        Serial.println("{\"device\":\"CONFIG\",\"command\":\"SET_THRESHOLDS\",\"success\":true}");
+    } else if (command == "RESET_THRESHOLDS") {
+        resetToDefaultThresholds();
+        Serial.println("{\"device\":\"CONFIG\",\"command\":\"RESET_THRESHOLDS\",\"success\":true}");
+    } else {
+        Serial.println("{\"device\":\"CONFIG\",\"error\":\"UNKNOWN_COMMAND\",\"command\":\"" + command + "\"}");
+    }
+}
+
+void CommandProcessor::processStatusCommand() {
+    String status = "{";
+    status += "\"system\":\"COMMAND_PROCESSOR\",";
+    status += "\"initialized\":" + String(initialized ? "true" : "false") + ",";
+    status += "\"device_configured\":" + String(deviceConfigured ? "true" : "false") + ",";
+    status += "\"device_type\":\"" + deviceType_str + "\",";
+    status += "\"sensors_ready\":" + String(areAllSensorsReady() ? "true" : "false");
+    status += "}";
+    Serial.println(status);
+}
+
+bool CommandProcessor::isCatPresent() {
+    float distance = sensorManager->getLitterboxDistance();
+    return (distance > 0 && distance < catPresentThreshold);
+}
+
+bool CommandProcessor::isLitterboxClean() {
+    float humidity = sensorManager->getLitterboxHumidity();
+    float temperature = sensorManager->getLitterboxTemperature();
+    float gasPPM = sensorManager->getLitterboxGasPPM();
+    
+    return (humidity >= minHumidity && humidity <= maxHumidity &&
+            temperature >= minTemperature && temperature <= maxTemperature &&
+            gasPPM <= maxGasPPM);
+}
+
+bool CommandProcessor::isFeederSafeToOperate() {
+    // Verificar que no hay gato comiendo
+    float catDistance = sensorManager->getFeederCatDistance();
+    if (catDistance > 0 && catDistance < 15.0f) { // Gato presente
+        return false;
+    }
+    
+    // Verificar que el sensor de peso funciona
+    if (!sensorManager->isFeederWeightReady()) {
+        return false;
+    }
+    
+    return true;
 }

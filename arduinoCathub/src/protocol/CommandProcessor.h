@@ -15,10 +15,6 @@ private:
     LitterboxStepperMotor* litterboxMotor;
     bool initialized;
 
-    bool waterPumpRunning;
-    unsigned long waterPumpStartTime;
-    unsigned long lastAutoCleanTime;
-
     // ===== CONFIGURACIÓN DINÁMICA DE DISPOSITIVO =====
     String deviceIdentifier;
     String deviceType_str;
@@ -47,6 +43,7 @@ private:
     float minTemperature;
     bool thresholdsConfiguredByRaspberry;
     unsigned long lastConfigUpdate;
+    unsigned long lastAutoCleanTime;
 
     // ===== VARIABLES DEL COMEDERO =====
     float maxWeightGrams;
@@ -69,7 +66,7 @@ private:
     unsigned long waterPumpStartTime;
     bool waterPumpRunning;
     static const unsigned long WATER_CHECK_INTERVAL = 5000;
-    static const unsigned long WATER_PUMP_TIMEOUT = 10000;
+    static const unsigned long WATER_PUMP_TIMEOUT_MS = 10000;
 
     // ===== MÉTODOS DE CONFIGURACIÓN DINÁMICA =====
     void processDeviceCommand(String command, String params);
@@ -79,6 +76,10 @@ private:
     // ===== MÉTODOS POR DISPOSITIVO =====
     void processLitterboxCommand(String command, String params);
     void processFeederCommand(String command, String params);
+    void processWaterDispenserCommand(String command, String params);
+    
+    // ===== MÉTODOS DE UTILIDAD =====
+    bool areAllSensorsReady();
     void processConfigCommand(String command, String params);
     void processStatusCommand();
     
