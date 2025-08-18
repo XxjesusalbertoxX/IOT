@@ -1,19 +1,19 @@
 #include "SensorManager.h"
 
 SensorManager::SensorManager() : initialized(false), lastUpdateTime(0) {
-    // Inicializar sin IDs hardcodeados - se asignarán dinámicamente
-    ultrasonicSensor = new LitterboxUltrasonicSensor();
-    dhtSensor = new LitterboxDHTSensor();
-    mq2Sensor = new LitterboxMQ2Sensor();
+    // Inicializar sensores sin IDs hardcodeados
+    ultrasonicSensor = new LitterboxUltrasonicSensor(nullptr, nullptr);
+    dhtSensor = new LitterboxDHTSensor(nullptr, nullptr);
+    mq2Sensor = new LitterboxMQ2Sensor(nullptr, nullptr);
     litterboxMotor = new LitterboxStepperMotor();
-
-    weightSensor = new FeederWeightSensor();
-    feederUltrasonic1 = new FeederUltrasonicSensor();
-    feederUltrasonic2 = new FeederUltrasonicSensor();
+    
+    weightSensor = new FeederWeightSensor(nullptr, nullptr);
+    feederUltrasonic1 = new FeederUltrasonicSensor1(nullptr, nullptr);
+    feederUltrasonic2 = new FeederUltrasonicSensor2(nullptr, nullptr);
     feederMotor = new FeederStepperMotor();
-
-    waterSensor = new WaterDispenserSensor();
-    waterIRSensor = new WaterDispenserIRSensor();
+    
+    waterSensor = new WaterDispenserSensor(nullptr, nullptr);
+    waterIRSensor = new WaterDispenserIRSensor(nullptr, nullptr);
     waterPump = new WaterDispenserPump();
 }
 

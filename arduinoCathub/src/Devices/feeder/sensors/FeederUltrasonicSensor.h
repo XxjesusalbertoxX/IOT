@@ -5,37 +5,56 @@
 #include "../config/SensorIDs.h"
 #include "../../config/DeviceIDs.h"
 
-class FeederUltrasonicSensor {
+// Sensor para detectar presencia del gato
+class FeederUltrasonicSensor1 {
 private:
-    static const int TRIGGER_PIN_1 = 9;   // Pin para instancia 1
-    static const int ECHO_PIN_1 = 10;     // Pin para instancia 1
-    static const int TRIGGER_PIN_2 = 11;  // Pin para instancia 2
-    static const int ECHO_PIN_2 = 12;     // Pin para instancia 2
-    static const unsigned long TIMEOUT_US = 25000; // 25ms = ~4m máximo
+    static const int TRIG_PIN = 9;   // Pin trigger para sensor 1
+    static const int ECHO_PIN = 10;  // Pin echo para sensor 1
     static const unsigned long READ_INTERVAL = 100;
+    static const unsigned long TIMEOUT_US = 25000; // 25ms = ~4m máximo
     
     const char* sensorId;
     const char* deviceId;
-    int triggerPin;
-    int echoPin;
-    bool isFirstInstance;
     
     float lastDistance;
     unsigned long lastReadTime;
     bool sensorReady;
 
 public:
-    // Constructor modificado para soportar múltiples instancias
-    FeederUltrasonicSensor(bool isFirstSensor = true, 
-                           const char* id = nullptr,
-                           const char* deviceId = nullptr);
+    FeederUltrasonicSensor1(const char* id = nullptr, const char* deviceId = nullptr);
     bool initialize();
     void update();
     float getDistance();
     bool isReady();
+    String getStatus();
     const char* getSensorId();
     const char* getDeviceId();
+};
+
+// Sensor para medir nivel de comida en dispensador
+class FeederUltrasonicSensor2 {
+private:
+    static const int TRIG_PIN = 11;  // Pin trigger para sensor 2
+    static const int ECHO_PIN = 12;  // Pin echo para sensor 2
+    static const unsigned long READ_INTERVAL = 100;
+    static const unsigned long TIMEOUT_US = 25000; // 25ms = ~4m máximo
+    
+    const char* sensorId;
+    const char* deviceId;
+    
+    float lastDistance;
+    unsigned long lastReadTime;
+    bool sensorReady;
+
+public:
+    FeederUltrasonicSensor2(const char* id = nullptr, const char* deviceId = nullptr);
+    bool initialize();
+    void update();
+    float getDistance();
+    bool isReady();
     String getStatus();
+    const char* getSensorId();
+    const char* getDeviceId();
 };
 
 #endif

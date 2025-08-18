@@ -21,8 +21,8 @@ private:
     LitterboxStepperMotor* litterboxMotor;
     
     FeederWeightSensor* weightSensor;
-    FeederUltrasonicSensor* feederUltrasonic1;
-    FeederUltrasonicSensor* feederUltrasonic2;
+    FeederUltrasonicSensor1* feederUltrasonic1;
+    FeederUltrasonicSensor2* feederUltrasonic2;
     FeederStepperMotor* feederMotor;
     
     WaterDispenserSensor* waterSensor;

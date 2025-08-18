@@ -56,12 +56,14 @@ void CommandProcessor::processCommand(String command) {
         processDeviceCommand(cmd, params);
     } else if (device == "SENSOR") {
         processSensorCommand(cmd, params);
-    } else if (device == "SENSORS") {  // Soporte para "SENSORS:READ_ALL"
+    } else if (device == "SENSORS") {
         processSensorCommand(cmd, params);
     } else if (device == "LITTERBOX") {
         processLitterboxCommand(cmd, params);
     } else if (device == "FEEDER") {
         processFeederCommand(cmd, params);
+    } else if (device == "WATERDISPENSER") {  // 👈 AGREGAR ESTA LÍNEA
+        processWaterDispenserCommand(cmd, params);
     } else if (device == "CONFIG") {
         processConfigCommand(cmd, params);
     } else if (device == "STATUS") {
@@ -109,7 +111,8 @@ void CommandProcessor::processSensorCommand(String command, String params) {
             this->sensorIdentifiers[sensorIndex] = sensorId;
             this->sensorConfigured[sensorIndex] = true;
             
-            Serial.println("{\"device\":\"SENSOR\",\"command\":\"SET_ID\",\"success\":true,\"index\":" + String(sensorIndex) + ",\"identifier\":\"" + sensorId + "\"}");
+            Serial.println("{\"device\":\"SENSOR\",\"command\":\"SET_ID\",\"success\":true,\"index\":" + 
+                           String(sensorIndex) + ",\"identifier\":\"" + sensorId + "\"}");
         } else {
             Serial.println("{\"error\":\"INVALID_SENSOR_INDEX\"}");
         }
@@ -130,27 +133,73 @@ void CommandProcessor::sendAllSensorReadingsWithIdentifiers() {
     
     if (deviceType == "litterbox") {
         String response = "{";
-        response += "\"distance\":" + String(sensorManager->getLitterboxDistance()) + ",";
-        response += "\"temperature\":" + String(sensorManager->getLitterboxTemperature()) + ",";
-        response += "\"humidity\":" + String(sensorManager->getLitterboxHumidity()) + ",";
-        response += "\"gas_ppm\":" + String(sensorManager->getLitterboxGasPPM());
-        response += "}";
+        response += "\"device_id\":\"" + deviceIdentifier + "\",";
+        response += "\"sensor_readings\":{";
+        
+        if (sensorConfigured[0])
+            response += "\"" + sensorIdentifiers[0] + "\":" + String(sensorManager->getLitterboxDistance()) + ",";
+        
+        if (sensorConfigured[1])
+            response += "\"" + sensorIdentifiers[1] + "\":" + String(sensorManager->getLitterboxTemperature()) + ",";
+        
+        if (sensorConfigured[2])
+            response += "\"" + sensorIdentifiers[2] + "\":" + String(sensorManager->getLitterboxHumidity()) + ",";
+        
+        if (sensorConfigured[3])
+            response += "\"" + sensorIdentifiers[3] + "\":" + String(sensorManager->getLitterboxGasPPM());
+        
+        // Quitar la última coma si es necesario
+        if (response.endsWith(","))
+            response.remove(response.length() - 1);
+            
+        response += "}}";
         Serial.println(response);
-    } else if (deviceType == "feeder") {
+    }
+    else if (deviceType == "feeder") {
         String response = "{";
-        response += "\"weight\":" + String(sensorManager->getFeederWeight()) + ",";
-        response += "\"cat_distance\":" + String(sensorManager->getFeederCatDistance()) + ",";
-        response += "\"food_distance\":" + String(sensorManager->getFeederFoodDistance());
-        response += "}";
+        response += "\"device_id\":\"" + deviceIdentifier + "\",";
+        response += "\"sensor_readings\":{";
+        
+        if (sensorConfigured[0])
+            response += "\"" + sensorIdentifiers[0] + "\":" + String(sensorManager->getFeederWeight()) + ",";
+        
+        if (sensorConfigured[1])
+            response += "\"" + sensorIdentifiers[1] + "\":" + String(sensorManager->getFeederCatDistance()) + ",";
+        
+        if (sensorConfigured[2])
+            response += "\"" + sensorIdentifiers[2] + "\":" + String(sensorManager->getFeederFoodDistance());
+        
+        // Quitar la última coma si es necesario
+        if (response.endsWith(","))
+            response.remove(response.length() - 1);
+            
+        response += "}}";
         Serial.println(response);
-    } else if (deviceType == "waterdispenser") {
+    }
+    else if (deviceType == "waterdispenser") {
         String response = "{";
-        response += "\"water_level\":\"" + sensorManager->getWaterLevel() + "\",";
-        response += "\"cat_drinking\":" + String(sensorManager->isCatDrinking());
-        response += "}";
+        response += "\"device_id\":\"" + deviceIdentifier + "\",";
+        response += "\"sensor_readings\":{";
+        
+        // Sensor de nivel de agua (ultrasónico)
+        if (sensorConfigured[0])
+            response += "\"" + sensorIdentifiers[0] + "\":\"" + sensorManager->getWaterLevel() + "\",";
+        
+        // Sensor IR para detectar gato bebiendo
+        if (sensorConfigured[1]) {
+            bool catDrinking = sensorManager->isCatDrinking();
+            response += "\"" + sensorIdentifiers[1] + "\":" + String(catDrinking ? "true" : "false");
+        }
+        
+        // Quitar la última coma si es necesario
+        if (response.endsWith(","))
+            response.remove(response.length() - 1);
+            
+        response += "}}";
         Serial.println(response);
-    } else {
-        Serial.println("{\"error\":\"UNKNOWN_DEVICE_TYPE\"}");
+    }
+    else {
+        Serial.println("{\"error\":\"UNKNOWN_DEVICE_TYPE\",\"device_type\":\"" + deviceType + "\"}");
     }
 }
 

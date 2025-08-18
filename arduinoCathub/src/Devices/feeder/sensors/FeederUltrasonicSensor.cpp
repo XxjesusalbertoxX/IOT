@@ -1,135 +1,56 @@
-#include "FeederUltrasonicSensor.h"
-#include "../config/SensorIDs.h"
-#include "../../config/DeviceIDs.h"
+#ifndef FEEDER_ULTRASONIC_SENSOR_H
+#define FEEDER_ULTRASONIC_SENSOR_H
 
-// === FeederUltrasonicSensor1 ===
-FeederUltrasonicSensor1::FeederUltrasonicSensor1(const char* id, const char* deviceId) : sensorId(id), deviceId(deviceId), lastDistance(0.0), lastReadTime(0), sensorReady(false) {}
-bool FeederUltrasonicSensor1::initialize() {
-    pinMode(TRIG_PIN, OUTPUT);
-    pinMode(ECHO_PIN, INPUT);
+#include <Arduino.h>
+
+// Sensor 1: Detección de gato
+class FeederUltrasonicSensor1 {
+private:
+    static const int TRIG_PIN = 9;
+    static const int ECHO_PIN = 10;
+    static const unsigned long READ_INTERVAL = 100;
+    static const unsigned long TIMEOUT_US = 25000;
     
-    digitalWrite(TRIG_PIN, LOW);
-    delayMicroseconds(2);
-    digitalWrite(TRIG_PIN, HIGH);
-    delayMicroseconds(10);
-    digitalWrite(TRIG_PIN, LOW);
+    const char* sensorId;
+    const char* deviceId;
+    float lastDistance;
+    unsigned long lastReadTime;
+    bool sensorReady;
+
+public:
+    FeederUltrasonicSensor1(const char* id = nullptr, const char* deviceId = nullptr);
+    bool initialize();
+    void update();
+    float getDistance();
+    bool isReady();
+    String getStatus();
+    const char* getSensorId();
+    const char* getDeviceId();
+};
+
+// Sensor 2: Nivel de comida
+class FeederUltrasonicSensor2 {
+private:
+    static const int TRIG_PIN = 11;
+    static const int ECHO_PIN = 12;
+    static const unsigned long READ_INTERVAL = 100;
+    static const unsigned long TIMEOUT_US = 25000;
     
-    long duration = pulseIn(ECHO_PIN, HIGH, TIMEOUT_US);
-    
-    if (duration > 0) {
-        sensorReady = true;
-        lastDistance = (duration * 0.034) / 2;
-        return true;
-    } else {
-        sensorReady = false;
-        return false;
-    }
-}
+    const char* sensorId;
+    const char* deviceId;
+    float lastDistance;
+    unsigned long lastReadTime;
+    bool sensorReady;
 
-void FeederUltrasonicSensor1::update() {
-    if (!sensorReady) return;
-    
-    unsigned long now = millis();
-    if (now - lastReadTime >= READ_INTERVAL) {
-        digitalWrite(TRIG_PIN, LOW);
-        delayMicroseconds(2);
-        digitalWrite(TRIG_PIN, HIGH);
-        delayMicroseconds(10);
-        digitalWrite(TRIG_PIN, LOW);
-        
-        long duration = pulseIn(ECHO_PIN, HIGH, TIMEOUT_US);
-        
-        if (duration > 0) {
-            lastDistance = (duration * 0.034) / 2;
-        }
-        
-        lastReadTime = now;
-    }
-}
+public:
+    FeederUltrasonicSensor2(const char* id = nullptr, const char* deviceId = nullptr);
+    bool initialize();
+    void update();
+    float getDistance();
+    bool isReady();
+    String getStatus();
+    const char* getSensorId();
+    const char* getDeviceId();
+};
 
-float FeederUltrasonicSensor1::getDistance() {
-    return lastDistance;
-}
-
-bool FeederUltrasonicSensor1::isReady() {
-    return sensorReady;
-}
-
-String FeederUltrasonicSensor1::getStatus() {
-    if (!sensorReady) return "NOT_INITIALIZED";
-    return "READY";
-}
-
-const char* FeederUltrasonicSensor1::getSensorId() {
-    return sensorId; 
-}
-
-
-const char* FeederUltrasonicSensor1::getDeviceId() {
-    return deviceId;
-}
-
-FeederUltrasonicSensor2::FeederUltrasonicSensor2(const char* id, const char* deviceId) : sensorId(id), deviceId(deviceId), lastDistance(0.0), lastReadTime(0), sensorReady(false) {}
-bool FeederUltrasonicSensor2::initialize() {
-    pinMode(TRIG_PIN, OUTPUT);
-    pinMode(ECHO_PIN, INPUT);
-    
-    digitalWrite(TRIG_PIN, LOW);
-    delayMicroseconds(2);
-    digitalWrite(TRIG_PIN, HIGH);
-    delayMicroseconds(10);
-    digitalWrite(TRIG_PIN, LOW);
-    
-    long duration = pulseIn(ECHO_PIN, HIGH, TIMEOUT_US);
-    
-    if (duration > 0) {
-        sensorReady = true;
-        lastDistance = (duration * 0.034) / 2;
-        return true;
-    } else {
-        sensorReady = false;
-        return false;
-    }
-}
-
-void FeederUltrasonicSensor2::update() {
-    if (!sensorReady) return;
-    
-    unsigned long now = millis();
-    if (now - lastReadTime >= READ_INTERVAL) {
-        digitalWrite(TRIG_PIN, LOW);
-        delayMicroseconds(2);
-        digitalWrite(TRIG_PIN, HIGH);
-        delayMicroseconds(10);
-        digitalWrite(TRIG_PIN, LOW);
-        
-        long duration = pulseIn(ECHO_PIN, HIGH, TIMEOUT_US);
-        
-        if (duration > 0) {
-            lastDistance = (duration * 0.034) / 2;
-        }
-        
-        lastReadTime = now;
-    }
-}
-
-float FeederUltrasonicSensor2::getDistance() {
-    return lastDistance;
-}
-
-bool FeederUltrasonicSensor2::isReady() {
-    return sensorReady;
-}
-
-String FeederUltrasonicSensor2::getStatus() {
-    if (!sensorReady) return "NOT_INITIALIZED";
-    return "READY";
-}
-
-const char* FeederUltrasonicSensor2::getSensorId() {
-   return sensorId;
-}
-
-const char* FeederUltrasonicSensor2::getDeviceId() {
-    return deviceId;
-}
+#endif
