@@ -1,10 +1,10 @@
 #include "FeederWeightSensor.h"
-#include "../config/SensorIDs.h"
-#include "../../config/DeviceIDs.h"
 
-const float FeederWeightSensor::CALIBRATION_FACTOR = -7050.0;
+const float FeederWeightSensor::CALIBRATION_FACTOR = 422.0;
 
-FeederWeightSensor::FeederWeightSensor(const char* id, const char* deviceId) : sensorId(id), deviceId(deviceId), currentWeight(0.0), lastReadTime(0), sensorReady(false) {}
+FeederWeightSensor::FeederWeightSensor(const char* id, const char* devId) 
+    : sensorId(id), deviceId(devId), currentWeight(0), lastReadTime(0), sensorReady(false) {
+}
 
 bool FeederWeightSensor::initialize() {
     scale.begin(DOUT_PIN, SCK_PIN);

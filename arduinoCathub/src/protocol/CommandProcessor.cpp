@@ -1,18 +1,33 @@
 #include "CommandProcessor.h"
-#include <ArduinoJson.h>
 
 CommandProcessor::CommandProcessor(SensorManager* sensors, LitterboxStepperMotor* motor) 
-    : sensorManager(sensors), litterboxMotor(motor), initialized(false), 
-      thresholdsConfiguredByRaspberry(false), lastConfigUpdate(0) {
-    // 🔒 INICIALIZAR CON VALORES POR DEFECTO SEGUROS
+    : sensorManager(sensors), litterboxMotor(motor), initialized(false),
+      deviceIdentifier(""), deviceType_str(""), deviceConfigured(false),
+      thresholdsConfiguredByRaspberry(false), lastConfigUpdate(0),
+      maxWeightGrams(500.0f), minWeightGrams(150.0f),
+      catEatingThreshold(15.0f), foodEmptyDistance(8.0f),
+      foodFullDistance(2.0f), feederThresholdsConfigured(false),
+      feederAutoRefillEnabled(true), lastFeederCheck(0),
+      feederMotorStartTime(0), feederMotorRunning(false),
+      lastWeightBeforeRefill(0.0), lastWaterCheck(0),
+      waterPumpStartTime(0), waterPumpRunning(false) {
+    
     initializeDefaultThresholds();
+    
+    // Inicializar arrays de identificadores
+    for (int i = 0; i < MAX_SENSORS; i++) {
+        sensorIdentifiers[i] = "";
+        sensorConfigured[i] = false;
+    }
 }
 
 bool CommandProcessor::initialize() {
-    initializeDefaultThresholds();
-    initialized = true;
+    if (sensorManager == nullptr || litterboxMotor == nullptr) {
+        Serial.println("{\"error\":\"SENSOR_MANAGER_NOT_INITIALIZED\"}");
+        return false;
+    }
     
-    Serial.println("{\"system\":\"COMMAND_PROCESSOR_READY\",\"thresholds\":\"USING_DEFAULTS\",\"config\":" + getCurrentThresholds() + "}");
+    initialized = true;
     return true;
 }
 
@@ -20,28 +35,16 @@ void CommandProcessor::processCommand(String command) {
     command.trim();
     if (command.length() == 0) return;
 
-    // RESPONDER A PING
     if (command == "PING") {
         Serial.println("PONG");
         return;
     }
 
-    // RESPONDER A PING (JSON)
-    if (command.startsWith("{") && command.endsWith("}")) {
-        StaticJsonDocument<64> doc;
-        DeserializationError error = deserializeJson(doc, command);
-        if (!error && doc["type"].is<String>() && doc["type"] == "PING") {
-            Serial.println("{\"type\":\"PONG\"}");
-            return;
-        }
-    }
-
-    // Formato esperado: "DEVICE:COMMAND:PARAMS"
     int firstColon = command.indexOf(':');
     int secondColon = command.indexOf(':', firstColon + 1);
     
     if (firstColon == -1) {
-        Serial.println("{\"error\":\"INVALID_COMMAND_FORMAT\",\"received\":\"" + command + "\"}");
+        Serial.println("{\"error\":\"INVALID_COMMAND_FORMAT\"}");
         return;
     }
 
@@ -49,11 +52,16 @@ void CommandProcessor::processCommand(String command) {
     String cmd = (secondColon == -1) ? command.substring(firstColon + 1) : command.substring(firstColon + 1, secondColon);
     String params = (secondColon == -1) ? "" : command.substring(secondColon + 1);
 
-    // Enrutar comandos
-    if (device == "LITTERBOX") {
-        processLitterboxCommand(cmd, params);
+    if (device == "DEVICE") {
+        processDeviceCommand(cmd, params);
     } else if (device == "SENSOR") {
         processSensorCommand(cmd, params);
+    } else if (device == "SENSORS") {  // Soporte para "SENSORS:READ_ALL"
+        processSensorCommand(cmd, params);
+    } else if (device == "LITTERBOX") {
+        processLitterboxCommand(cmd, params);
+    } else if (device == "FEEDER") {
+        processFeederCommand(cmd, params);
     } else if (device == "CONFIG") {
         processConfigCommand(cmd, params);
     } else if (device == "STATUS") {
@@ -63,320 +71,87 @@ void CommandProcessor::processCommand(String command) {
     }
 }
 
-void CommandProcessor::processLitterboxCommand(String command, String params) {
-    if (command == "SET_STATE") {
-        int state = params.toInt();
-        
-        // ✅ VALIDAR CONDICIONES DE SEGURIDAD ANTES DE CAMBIAR ESTADO
-        if (!isLitterboxSafeToOperate()) {
-            Serial.println("{\"device\":\"LITTERBOX\",\"command\":\"SET_STATE\",\"success\":false,\"error\":\"SAFETY_CONDITIONS_NOT_MET\",\"details\":" + getSafetyStatus() + ",\"validation_errors\":" + getValidationErrors() + "}");
-            
-            // 🚨 AUTO-BLOQUEAR si no estaba ya bloqueado
-            if (!litterboxMotor->isBlocked()) {
-                litterboxMotor->setState(-1); // BLOCKED
-                Serial.println("{\"db_alert\":{\"type\":\"AUTO_BLOCKED\",\"device\":\"LITTERBOX\",\"reason\":\"SAFETY_VALIDATION_FAILED\",\"errors\":" + getValidationErrors() + ",\"timestamp\":" + String(millis()) + "}}");
-            }
+void CommandProcessor::processDeviceCommand(String command, String params) {
+    if (command == "CONFIGURE") {
+        // Formato: "DEVICE:CONFIGURE:ARENERO-001,litterbox"
+        int commaIndex = params.indexOf(',');
+        if (commaIndex == -1) {
+            Serial.println("{\"error\":\"INVALID_CONFIGURE_FORMAT\"}");
             return;
         }
         
-        bool success = litterboxMotor->setState(state);
-        Serial.println("{\"device\":\"LITTERBOX\",\"command\":\"SET_STATE\",\"success\":" + String(success) + ",\"state\":" + String(state) + "}");
+        String identifier = params.substring(0, commaIndex);
+        String deviceType = params.substring(commaIndex + 1);
         
-    } else if (command == "NORMAL_CLEAN") {
-        // ✅ VALIDACIÓN CRÍTICA: No limpiar si hay gato o está sucio
-        if (!isLitterboxSafeToClean()) {
-            String errors = getValidationErrors();
-            Serial.println("{\"device\":\"LITTERBOX\",\"command\":\"NORMAL_CLEAN\",\"success\":false,\"error\":\"NOT_SAFE_TO_CLEAN\",\"details\":" + getSafetyStatus() + ",\"validation_errors\":" + errors + "}");
-            
-            // 🚨 REPORTAR ERROR ESPECÍFICO PARA LA DB
-            Serial.println("{\"db_alert\":{\"type\":\"CLEANING_BLOCKED\",\"device\":\"LITTERBOX\",\"action\":\"NORMAL_CLEAN\",\"errors\":" + errors + ",\"timestamp\":" + String(millis()) + "}}");
-            
-            // 🚨 AUTO-BLOQUEAR el motor hasta que se resuelvan los problemas
-            if (!litterboxMotor->isBlocked()) {
-                litterboxMotor->setState(-1); // BLOCKED
-                Serial.println("{\"db_alert\":{\"type\":\"AUTO_BLOCKED\",\"device\":\"LITTERBOX\",\"reason\":\"UNSAFE_TO_CLEAN\",\"errors\":" + errors + ",\"timestamp\":" + String(millis()) + "}}");
-            }
-            return;
-        }
+        this->deviceIdentifier = identifier;
+        this->deviceType_str = deviceType;
+        this->deviceConfigured = true;
         
-        bool success = litterboxMotor->executeNormalCleaning();
-        Serial.println("{\"device\":\"LITTERBOX\",\"command\":\"NORMAL_CLEAN\",\"success\":" + String(success) + "}");
-        
-    } else if (command == "COMPLETE_CLEAN") {
-        // ✅ VALIDACIÓN CRÍTICA: No limpiar si hay gato o está sucio
-        if (!isLitterboxSafeToClean()) {
-            String errors = getValidationErrors();
-            Serial.println("{\"device\":\"LITTERBOX\",\"command\":\"COMPLETE_CLEAN\",\"success\":false,\"error\":\"NOT_SAFE_TO_CLEAN\",\"details\":" + getSafetyStatus() + ",\"validation_errors\":" + errors + "}");
-            
-            // 🚨 REPORTAR ERROR ESPECÍFICO PARA LA DB
-            Serial.println("{\"db_alert\":{\"type\":\"CLEANING_BLOCKED\",\"device\":\"LITTERBOX\",\"action\":\"COMPLETE_CLEAN\",\"errors\":" + errors + ",\"timestamp\":" + String(millis()) + "}}");
-            
-            // 🚨 AUTO-BLOQUEAR el motor hasta que se resuelvan los problemas
-            if (!litterboxMotor->isBlocked()) {
-                litterboxMotor->setState(-1); // BLOCKED
-                Serial.println("{\"db_alert\":{\"type\":\"AUTO_BLOCKED\",\"device\":\"LITTERBOX\",\"reason\":\"UNSAFE_TO_CLEAN\",\"errors\":" + errors + ",\"timestamp\":" + String(millis()) + "}}");
-            }
-            return;
-        }
-        
-        bool success = litterboxMotor->executeCompleteCleaning();
-        Serial.println("{\"device\":\"LITTERBOX\",\"command\":\"COMPLETE_CLEAN\",\"success\":" + String(success) + "}");
-        
-    } else if (command == "STATUS") {
-        Serial.println("{\"device\":\"LITTERBOX\"," + litterboxMotor->getStatus() + ",\"safety\":" + getSafetyStatus() + ",\"validation_errors\":" + getValidationErrors() + "}");
-        
-    } else if (command == "EMERGENCY_STOP") {
-        litterboxMotor->emergencyStop();
-        Serial.println("{\"device\":\"LITTERBOX\",\"command\":\"EMERGENCY_STOP\",\"success\":true}");
-        
-    } else if (command == "FORCE_SET_STATE") {
-        // ⚠️ COMANDO DE EMERGENCIA: Cambiar estado sin validaciones (solo para emergencias)
-        int state = params.toInt();
-        bool success = litterboxMotor->setState(state);
-        Serial.println("{\"device\":\"LITTERBOX\",\"command\":\"FORCE_SET_STATE\",\"success\":" + String(success) + ",\"state\":" + String(state) + ",\"warning\":\"SAFETY_BYPASSED\"}");
-        
+        Serial.println("{\"device\":\"DEVICE\",\"command\":\"CONFIGURE\",\"success\":true,\"identifier\":\"" + identifier + "\",\"type\":\"" + deviceType + "\"}");
     } else {
-        Serial.println("{\"device\":\"LITTERBOX\",\"error\":\"UNKNOWN_COMMAND\",\"command\":\"" + command + "\"}");
+        Serial.println("{\"device\":\"DEVICE\",\"error\":\"UNKNOWN_COMMAND\"}");
     }
 }
 
 void CommandProcessor::processSensorCommand(String command, String params) {
-    if (command == "READ_ALL") {
-        sendAllSensorReadings();
-    } else if (command == "SAFETY_CHECK") {
-        Serial.println("{\"device\":\"SENSORS\",\"safety_check\":" + getSafetyStatus() + ",\"validation_errors\":" + getValidationErrors() + "}");
-    } else {
-        Serial.println("{\"device\":\"SENSORS\",\"error\":\"UNKNOWN_COMMAND\",\"command\":\"" + command + "\"}");
-    }
-}
-
-void CommandProcessor::processConfigCommand(String command, String params) {
-    if (command == "SET_THRESHOLDS") {
-        int commaCount = 0;
-        for (size_t i = 0; i < params.length(); i++) {
-            if (params.charAt(i) == ',') commaCount++;
+    if (command == "SET_ID") {
+        // Formato: "SENSOR:SET_ID:0,TEMP_ARENERO-001"
+        int commaIndex = params.indexOf(',');
+        if (commaIndex == -1) {
+            Serial.println("{\"error\":\"INVALID_SET_ID_FORMAT\"}");
+            return;
         }
         
-        if (commaCount == 5) {
-            int startIndex = 0;
-            float values[6];
+        int sensorIndex = params.substring(0, commaIndex).toInt();
+        String sensorId = params.substring(commaIndex + 1);
+        
+        if (sensorIndex >= 0 && sensorIndex < MAX_SENSORS) {
+            this->sensorIdentifiers[sensorIndex] = sensorId;
+            this->sensorConfigured[sensorIndex] = true;
             
-            for (int i = 0; i < 6; i++) {
-                int commaIndex = params.indexOf(',', startIndex);
-                if (commaIndex == -1 && i == 5) {
-                    values[i] = params.substring(startIndex).toFloat();
-                } else if (commaIndex != -1) {
-                    values[i] = params.substring(startIndex, commaIndex).toFloat();
-                    startIndex = commaIndex + 1;
-                } else {
-                    Serial.println("{\"device\":\"CONFIG\",\"error\":\"INVALID_THRESHOLD_FORMAT\",\"expected\":\"cat,gas,hum_max,hum_min,temp_max,temp_min\"}");
-                    return;
-                }
-            }
-            
-            setThresholds(values[0], values[1], values[2], values[3], values[4], values[5]);
-            thresholdsConfiguredByRaspberry = true;
-            lastConfigUpdate = millis();
-            
-            Serial.println("{\"device\":\"CONFIG\",\"command\":\"SET_THRESHOLDS\",\"success\":true,\"source\":\"RASPBERRY_PI\",\"config\":" + getCurrentThresholds() + "}");
+            Serial.println("{\"device\":\"SENSOR\",\"command\":\"SET_ID\",\"success\":true,\"index\":" + String(sensorIndex) + ",\"identifier\":\"" + sensorId + "\"}");
         } else {
-            Serial.println("{\"device\":\"CONFIG\",\"error\":\"INVALID_THRESHOLD_FORMAT\",\"expected\":\"cat,gas,hum_max,hum_min,temp_max,temp_min\",\"received_commas\":" + String(commaCount) + "}");
+            Serial.println("{\"error\":\"INVALID_SENSOR_INDEX\"}");
         }
-        
-    } else if (command == "RESET_THRESHOLDS") {
-        resetToDefaultThresholds();
-        Serial.println("{\"device\":\"CONFIG\",\"command\":\"RESET_THRESHOLDS\",\"success\":true,\"source\":\"DEFAULT_VALUES\",\"config\":" + getCurrentThresholds() + "}");
-        
-    } else if (command == "GET_THRESHOLDS") {
-        Serial.println("{\"device\":\"CONFIG\",\"command\":\"GET_THRESHOLDS\",\"config\":" + getCurrentThresholds() + ",\"source\":\"" + (thresholdsConfiguredByRaspberry ? "RASPBERRY_PI" : "DEFAULT_VALUES") + "\"}");
-        
+    } else if (command == "READ_ALL") {
+        sendAllSensorReadingsWithIdentifiers();
     } else {
-        Serial.println("{\"device\":\"CONFIG\",\"error\":\"UNKNOWN_COMMAND\",\"command\":\"" + command + "\"}");
+        Serial.println("{\"device\":\"SENSORS\",\"error\":\"UNKNOWN_COMMAND\"}");
     }
 }
 
-void CommandProcessor::processStatusCommand() {
-    Serial.println("{\"system_status\":{\"litterbox\":" + litterboxMotor->getStatus() + ",\"safety\":" + getSafetyStatus() + ",\"validation_errors\":" + getValidationErrors() + "}}");
-}
-
-// ===== VALIDACIONES DE SEGURIDAD =====
-bool CommandProcessor::isLitterboxSafeToOperate() {
-    // Verificar que los sensores estén listos
-    if (!sensorManager->isLitterboxUltrasonicReady()) return false;
-    if (!sensorManager->isLitterboxDHTReady()) return false;
-    if (!sensorManager->isLitterboxMQ2Ready()) return false;
-    
-    return true;
-}
-
-bool CommandProcessor::isLitterboxSafeToClean() {
-    // 1. Verificar que esté en estado READY
-    if (!litterboxMotor->isReady()) return false;
-    
-    // 2. ✅ CRÍTICO: NO hay gato presente
-    if (isCatPresent()) return false;
-    
-    // 3. ✅ CRÍTICO: Arenero está limpio (no sucio)
-    if (!isLitterboxClean()) return false;
-    
-    return true;
-}
-
-// ===== VALIDACIONES ESPECÍFICAS CON DATOS REALES =====
-bool CommandProcessor::isCatPresent() {
-    float distance = sensorManager->getLitterboxDistance();
-    
-    if (distance < 0) {
-        Serial.println("{\"warning\":\"ULTRASONIC_SENSOR_ERROR\",\"distance\":" + String(distance) + "}");
-        return true; //si no podemos leer, asumimos que hay gato (más seguro)
+void CommandProcessor::sendAllSensorReadingsWithIdentifiers() {
+    if (!deviceConfigured) {
+        Serial.println("{\"error\":\"DEVICE_NOT_CONFIGURED\"}");
+        return;
     }
     
-    // ✅ VALIDACIÓN REAL: Distancia normal 14cm, gato presente ≤ 6cm
-    bool catDetected = (distance <= catPresentThreshold);
+    String deviceType = this->deviceType_str;
     
-    if (catDetected) {
-        Serial.println("{\"cat_detection\":{\"detected\":true,\"distance\":" + String(distance) + 
-                      ",\"threshold\":" + String(catPresentThreshold) + ",\"status\":\"CAT_PRESENT\"}}");
-    }
-    
-    return catDetected;
-}
-
-bool CommandProcessor::isLitterboxClean() {
-    float gasPPM = sensorManager->getLitterboxGasPPM();
-    float humidity = sensorManager->getLitterboxHumidity();
-    float temperature = sensorManager->getLitterboxTemperature();
-    
-    // Validar que los sensores estén funcionando
-    if (gasPPM < 0 || humidity < 0 || temperature < -900) {
-        Serial.println("{\"warning\":\"SENSOR_READ_ERROR\",\"gas\":" + String(gasPPM) + 
-                      ",\"humidity\":" + String(humidity) + ",\"temp\":" + String(temperature) + "}");
-        return false; // SEGURIDAD: Si no podemos leer, asumimos que está sucio (más seguro)
-    }
-    
-    // ✅ VALIDACIÓN REAL: Verificar niveles dentro de rangos "limpios"
-    bool gasOK = (gasPPM <= maxGasPPM);
-    bool humidityOK = (humidity <= maxHumidity && humidity >= minHumidity);
-    bool temperatureOK = (temperature <= maxTemperature && temperature >= minTemperature);
-    
-    bool isClean = (gasOK && humidityOK && temperatureOK);
-    
-    // Log detallado de las condiciones
-    Serial.println("{\"cleanliness_check\":{\"clean\":" + String(isClean) + 
-                  ",\"gas\":{\"ppm\":" + String(gasPPM) + ",\"max\":" + String(maxGasPPM) + ",\"ok\":" + String(gasOK) + "}," +
-                  "\"humidity\":{\"value\":" + String(humidity) + ",\"range\":\"" + String(minHumidity) + "-" + String(maxHumidity) + "\",\"ok\":" + String(humidityOK) + "}," +
-                  "\"temperature\":{\"value\":" + String(temperature) + ",\"range\":\"" + String(minTemperature) + "-" + String(maxTemperature) + "\",\"ok\":" + String(temperatureOK) + "}}}");
-    
-    if (!isClean) {
-        if (!gasOK) {
-            Serial.println("{\"litterbox_alert\":{\"type\":\"HIGH_GAS\",\"ppm\":" + String(gasPPM) + ",\"max_allowed\":" + String(maxGasPPM) + "}}");
-        }
-        if (!humidityOK) {
-            Serial.println("{\"litterbox_alert\":{\"type\":\"HUMIDITY_OUT_OF_RANGE\",\"humidity\":" + String(humidity) + ",\"range\":\"" + String(minHumidity) + "-" + String(maxHumidity) + "\"}}");
-        }
-        if (!temperatureOK) {
-            Serial.println("{\"litterbox_alert\":{\"type\":\"TEMPERATURE_OUT_OF_RANGE\",\"temperature\":" + String(temperature) + ",\"range\":\"" + String(minTemperature) + "-" + String(maxTemperature) + "\"}}");
-        }
-    }
-    
-    return isClean;
-}
-
-String CommandProcessor::getValidationErrors() {
-    String errors = "[";
-    bool hasErrors = false;
-    
-    // ✅ VERIFICAR GATO PRESENTE CON DATOS REALES
-    float distance = sensorManager->getLitterboxDistance();
-    if (distance >= 0) { // Solo si el sensor funciona
-        if (distance <= catPresentThreshold) {
-            if (hasErrors) errors += ",";
-            errors += "{\"type\":\"CAT_PRESENT\",\"message\":\"Gato detectado en el arenero\",\"distance\":" + String(distance, 2) + ",\"threshold\":" + String(catPresentThreshold) + ",\"sensor\":\"ULTRASONIC\"}";
-            hasErrors = true;
-        }
+    if (deviceType == "litterbox") {
+        String response = "{";
+        response += "\"distance\":" + String(sensorManager->getLitterboxDistance()) + ",";
+        response += "\"temperature\":" + String(sensorManager->getLitterboxTemperature()) + ",";
+        response += "\"humidity\":" + String(sensorManager->getLitterboxHumidity()) + ",";
+        response += "\"gas_ppm\":" + String(sensorManager->getLitterboxGasPPM());
+        response += "}";
+        Serial.println(response);
+    } else if (deviceType == "feeder") {
+        String response = "{";
+        response += "\"weight\":" + String(sensorManager->getFeederWeight()) + ",";
+        response += "\"cat_distance\":" + String(sensorManager->getFeederCatDistance()) + ",";
+        response += "\"food_distance\":" + String(sensorManager->getFeederFoodDistance());
+        response += "}";
+        Serial.println(response);
+    } else if (deviceType == "waterdispenser") {
+        String response = "{";
+        response += "\"water_level\":\"" + sensorManager->getWaterLevel() + "\",";
+        response += "\"cat_drinking\":" + String(sensorManager->isCatDrinking());
+        response += "}";
+        Serial.println(response);
     } else {
-        // Error del sensor ultrasónico
-        if (hasErrors) errors += ",";
-        errors += "{\"type\":\"SENSOR_ERROR\",\"message\":\"Sensor ultrasónico no responde\",\"sensor\":\"ULTRASONIC\"}";
-        hasErrors = true;
+        Serial.println("{\"error\":\"UNKNOWN_DEVICE_TYPE\"}");
     }
-    
-    // ✅ VERIFICAR NIVELES DE SUCIEDAD CON DATOS REALES
-    float gasPPM = sensorManager->getLitterboxGasPPM();
-    float humidity = sensorManager->getLitterboxHumidity();
-    float temperature = sensorManager->getLitterboxTemperature();
-    
-    // Error de gas (arenero sucio)
-    if (gasPPM >= 0) { // Solo si el sensor funciona
-        if (gasPPM > maxGasPPM) {
-            if (hasErrors) errors += ",";
-            errors += "{\"type\":\"DIRTY_LITTER\",\"message\":\"Nivel de gas muy alto - arenero sucio\",\"gas_ppm\":" + String(gasPPM, 2) + ",\"max_allowed\":" + String(maxGasPPM) + ",\"sensor\":\"MQ2\"}";
-            hasErrors = true;
-        }
-    } else {
-        // Error del sensor MQ2
-        if (hasErrors) errors += ",";
-        errors += "{\"type\":\"SENSOR_ERROR\",\"message\":\"Sensor de gas no responde\",\"sensor\":\"MQ2\"}";
-        hasErrors = true;
-    }
-    
-    // Error de humedad
-    if (humidity >= 0) { // Solo si el sensor funciona
-        if (humidity > maxHumidity || humidity < minHumidity) {
-            if (hasErrors) errors += ",";
-            errors += "{\"type\":\"HUMIDITY_ISSUE\",\"message\":\"Humedad fuera de rango\",\"humidity\":" + String(humidity, 1) + ",\"range\":\"" + String(minHumidity) + "-" + String(maxHumidity) + "\",\"sensor\":\"DHT\"}";
-            hasErrors = true;
-        }
-    } else {
-        // Error del sensor DHT (humedad)
-        if (hasErrors) errors += ",";
-        errors += "{\"type\":\"SENSOR_ERROR\",\"message\":\"Sensor de humedad no responde\",\"sensor\":\"DHT_HUMIDITY\"}";
-        hasErrors = true;
-    }
-    
-    // Error de temperatura
-    if (temperature > -900) { // Solo si el sensor funciona
-        if (temperature > maxTemperature || temperature < minTemperature) {
-            if (hasErrors) errors += ",";
-            errors += "{\"type\":\"TEMPERATURE_ISSUE\",\"message\":\"Temperatura fuera de rango\",\"temperature\":" + String(temperature, 1) + ",\"range\":\"" + String(minTemperature) + "-" + String(maxTemperature) + "\",\"sensor\":\"DHT\"}";
-            hasErrors = true;
-        }
-    } else {
-        // Error del sensor DHT (temperatura)
-        if (hasErrors) errors += ",";
-        errors += "{\"type\":\"SENSOR_ERROR\",\"message\":\"Sensor de temperatura no responde\",\"sensor\":\"DHT_TEMPERATURE\"}";
-        hasErrors = true;
-    }
-    
-    errors += "]";
-    return errors;
-}
-
-String CommandProcessor::getSafetyStatus() {
-    float distance = sensorManager->getLitterboxDistance();
-    float gasPPM = sensorManager->getLitterboxGasPPM();
-    float humidity = sensorManager->getLitterboxHumidity();
-    float temperature = sensorManager->getLitterboxTemperature();
-    
-    bool catPresent = isCatPresent();
-    bool litterboxClean = isLitterboxClean();
-    bool safeToClean = (!catPresent && litterboxClean);
-    
-    return "{\"cat_present\":" + String(catPresent) + 
-           ",\"distance\":" + String(distance) + 
-           ",\"litterbox_clean\":" + String(litterboxClean) + 
-           ",\"gas_ppm\":" + String(gasPPM) + 
-           ",\"humidity\":" + String(humidity) + 
-           ",\"temperature\":" + String(temperature) + 
-           ",\"safe_to_clean\":" + String(safeToClean) + 
-           ",\"thresholds\":{\"cat\":" + String(catPresentThreshold) + 
-           ",\"gas_max\":" + String(maxGasPPM) + 
-           ",\"hum_range\":\"" + String(minHumidity) + "-" + String(maxHumidity) + 
-           "\",\"temp_range\":\"" + String(minTemperature) + "-" + String(maxTemperature) + "\"}}";
-}
-
-void CommandProcessor::sendAllSensorReadings() {
-    sensorManager->printAllSensorReadings();
 }
 
 bool CommandProcessor::areAllSensorsReady() {

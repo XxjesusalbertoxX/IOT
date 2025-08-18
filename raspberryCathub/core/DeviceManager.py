@@ -233,11 +233,10 @@ class DeviceManager:
     def _read_arduino_sensors(self) -> Optional[Dict[str, Any]]:
         """📥 Leer todos los sensores del Arduino"""
         try:
-            # Enviar comando para leer todos los sensores
+            # ✅ CORREGIDO: Comando unificado
             if self.arduino.send_command("SENSORS:READ_ALL"):
                 response = self.arduino.read_response()
                 if response:
-                    # Parsear respuesta del Arduino
                     return self._parse_arduino_response(response)
             return None
         except Exception as e:

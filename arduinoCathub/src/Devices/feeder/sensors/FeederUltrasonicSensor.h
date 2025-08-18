@@ -5,54 +5,37 @@
 #include "../config/SensorIDs.h"
 #include "../../config/DeviceIDs.h"
 
-// Ultrasónico 1 del comedero
-class FeederUltrasonicSensor1 {
+class FeederUltrasonicSensor {
 private:
-    static const int TRIG_PIN = 4;
-    static const int ECHO_PIN = 5;
+    static const int TRIGGER_PIN_1 = 9;   // Pin para instancia 1
+    static const int ECHO_PIN_1 = 10;     // Pin para instancia 1
+    static const int TRIGGER_PIN_2 = 11;  // Pin para instancia 2
+    static const int ECHO_PIN_2 = 12;     // Pin para instancia 2
+    static const unsigned long TIMEOUT_US = 25000; // 25ms = ~4m máximo
     static const unsigned long READ_INTERVAL = 100;
-    static const long TIMEOUT_US = 30000;
+    
     const char* sensorId;
     const char* deviceId;
-
+    int triggerPin;
+    int echoPin;
+    bool isFirstInstance;
+    
     float lastDistance;
     unsigned long lastReadTime;
     bool sensorReady;
-    
+
 public:
-    FeederUltrasonicSensor1(const char* id, const char* deviceId);
+    // Constructor modificado para soportar múltiples instancias
+    FeederUltrasonicSensor(bool isFirstSensor = true, 
+                           const char* id = nullptr,
+                           const char* deviceId = nullptr);
     bool initialize();
     void update();
     float getDistance();
     bool isReady();
-    String getStatus();
-    const char* getDeviceId();
     const char* getSensorId();
-};
-
-// Ultrasónico 2 del comedero
-class FeederUltrasonicSensor2 {
-private:
-    static const int TRIG_PIN = 6;
-    static const int ECHO_PIN = 7;
-    static const unsigned long READ_INTERVAL = 100;
-    static const long TIMEOUT_US = 30000;
-    const char* sensorId;
-    const char* deviceId;
-
-    float lastDistance;
-    unsigned long lastReadTime;
-    bool sensorReady;
-    
-public:
-    FeederUltrasonicSensor2(const char* id, const char* deviceId);
-    bool initialize();
-    void update();
-    float getDistance();
-    bool isReady();
-    String getStatus();
     const char* getDeviceId();
-    const char* getSensorId();
+    String getStatus();
 };
 
 #endif
