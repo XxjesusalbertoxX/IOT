@@ -4,7 +4,6 @@
 
 // === FeederUltrasonicSensor1 ===
 FeederUltrasonicSensor1::FeederUltrasonicSensor1(const char* id, const char* deviceId) : sensorId(id), deviceId(deviceId), lastDistance(0.0), lastReadTime(0), sensorReady(false) {}
-
 bool FeederUltrasonicSensor1::initialize() {
     pinMode(TRIG_PIN, OUTPUT);
     pinMode(ECHO_PIN, INPUT);
@@ -70,6 +69,7 @@ const char* FeederUltrasonicSensor1::getDeviceId() {
     return deviceId;
 }
 
+FeederUltrasonicSensor2::FeederUltrasonicSensor2(const char* id, const char* deviceId) : sensorId(id), deviceId(deviceId), lastDistance(0.0), lastReadTime(0), sensorReady(false) {}
 bool FeederUltrasonicSensor2::initialize() {
     pinMode(TRIG_PIN, OUTPUT);
     pinMode(ECHO_PIN, INPUT);

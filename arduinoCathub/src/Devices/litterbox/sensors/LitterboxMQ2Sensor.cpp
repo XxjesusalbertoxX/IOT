@@ -2,7 +2,7 @@
 #include "../config/SensorIDs.h"
 #include "../../config/DeviceIDs.h"
 
-LitterboxMQ2Sensor::LitterboxMQ2Sensor() : lastValue(0), lastPPM(0), lastReadTime(0), sensorReady(false) {}
+LitterboxMQ2Sensor::LitterboxMQ2Sensor(const char* id, const char* deviceId) : lastValue(0), lastPPM(0), lastReadTime(0), sensorReady(false) {}
 
 bool LitterboxMQ2Sensor::initialize() {
     pinMode(ANALOG_PIN, INPUT);

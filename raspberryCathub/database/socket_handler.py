@@ -1,91 +1,51 @@
 import socketio
 import logging
-from typing import Dict, Callable
+from database.postgres_handler import PostgresHandler
 
-class SocketHandler:
-    def __init__(self, server_url: str = "http://localhost:3000"):
-        self.logger = logging.getLogger(__name__)
-        self.sio = socketio.Client()
-        self.server_url = server_url
-        self.connected = False
-        
-        # Callbacks
-        self.on_device_identifier_created_callback: Callable = None
-        self.on_device_status_changed_callback: Callable = None
-        self.on_feeder_food_assigned_callback: Callable = None
-        
-        self._setup_events()
+# Configura el logger
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-    def _setup_events(self):
-        """Configurar eventos del socket"""
-        
-        @self.sio.on('connect')
-        def on_connect():
-            self.logger.info("🔌 Conectado al servidor de sockets")
-            self.connected = True
+# Instancia de la base de datos
+db = PostgresHandler()
 
-        @self.sio.on('disconnect')
-        def on_disconnect():
-            self.logger.warning("🔌 Desconectado del servidor de sockets")
-            self.connected = False
+# Cliente Socket.IO
+sio = socketio.Client()
 
-        # ===== EVENTO ESPECÍFICO POR CÓDIGO DE DISPOSITIVO =====
-        @self.sio.on('create/identifier/device')
-        def on_device_identifier_created(data):
-            """Cuando se crea un identifier para UN código específico"""
-            self.logger.info(f"🆔 Identifier creado: {data}")
-            if self.on_device_identifier_created_callback:
-                self.on_device_identifier_created_callback(data)
+# Evento: cambio de estatus de dispositivo
+@sio.on('device_status_changed')
+def on_device_status_changed(data):
+    identifier = data.get('identifier')
+    logger.info(f"🔔 Cambio de estatus detectado para {identifier}")
 
-        @self.sio.on('get/status/device')
-        def on_device_status_changed(data):
-            """Cambio de status de dispositivo"""
-            self.logger.info(f"📊 Cambio de status: {data}")
-            if self.on_device_status_changed_callback:
-                self.on_device_status_changed_callback(data)
+    # Buscar status y el intervalo del motor en la base de datos
+    status = db.get_status_device_environment(identifier)
+    interval = db.get_interval_motor(identifier)
+    logger.info(f"Status actual: {status}, Intervalo motor: {interval}")
 
-        @self.sio.on('get/device/sensor/setting')
-        def on_feeder_food_assigned(data):
-            """Asignación de comida al feeder"""
-            self.logger.info(f"🍽️ Comida asignada: {data}")
-            if self.on_feeder_food_assigned_callback:
-                self.on_feeder_food_assigned_callback(data)
+    # Aquí podrías mandar el status al Arduino (lógica a implementar después)
 
-    def connect(self) -> bool:
-        """Conectar al servidor de sockets"""
-        try:
-            self.sio.connect(self.server_url)
-            return True
-        except Exception as e:
-            self.logger.error(f"❌ Error conectando al socket: {e}")
-            return False
+# Evento: limpiar completamente desde el frontend
+@sio.on('clean_litterbox')
+def on_clean_litterbox(data):
+    identifier = data.get('identifier')
+    logger.info(f"🧹 Solicitud de limpieza completa para {identifier}")
 
-    def listen_to_device_creation(self, device_code: str):
-        """
-        ✅ ESCUCHAR ESPECÍFICAMENTE LA CREACIÓN DE UN DISPOSITIVO
-        Estructura: create/identifier/device/{codigo}
-        """
-        room = f"create/identifier/device/{device_code}"
-        self.sio.emit('join', {'room': room})
-        self.logger.info(f"👂 Escuchando creación de identifier para: {device_code}")
-        self.logger.info(f"🎯 Room: {room}")
+    # Ejecutar la acción de limpieza (lógica a implementar)
+    # Actualizar el status a 'empty' en la base de datos si es necesario
+    # db.set_status_device_environment(identifier, 'empty') # Si tienes este método
 
-    def disconnect(self):
-        """Desconectar del servidor"""
-        if self.connected:
-            self.sio.disconnect()
+    # Aquí podrías mandar el comando al Arduino (lógica a implementar después)
 
-    # Setters para callbacks
-    def set_device_identifier_created_callback(self, callback: Callable):
-        self.on_device_identifier_created_callback = callback
+def main():
+    # Conéctate al servidor de sockets (ajusta la URL)
+    sio.connect('http://localhost:3000')  # Cambia la URL y puerto según tu backend
+    logger.info("Conectado al servidor de sockets.")
 
-    def set_device_status_changed_callback(self, callback: Callable):
-        self.on_device_status_changed_callback = callback
+    # Suscribirse a otros canales/topics si es necesario
+    # Por ejemplo, sio.emit('join', {'room': 'litterbox_updates'})
 
-    def set_feeder_food_assigned_callback(self, callback: Callable):
-        self.on_feeder_food_assigned_callback = callback
+    sio.wait()  # Mantiene el script corriendo
 
-    def wait_for_events(self):
-        """Mantener el socket escuchando"""
-        if self.connected:
-            self.sio.wait()
+if __name__ == "__main__":
+    main()

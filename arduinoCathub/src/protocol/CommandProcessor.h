@@ -2,31 +2,19 @@
 #define COMMAND_PROCESSOR_H
 
 #include <Arduino.h>
-#include "../sensors/SensorManager.h"
-#include "../sensors/litterbox/LitterboxStepperMotor.h"
+#include "../Devices/SensorManager.h"
+#include "../Devices/litterbox/actuators/LitterboxStepperMotor.h"
 
 class CommandProcessor {
-private:
+public:
+    // Constructores y estado
+    CommandProcessor(SensorManager* sensors, LitterboxStepperMotor* motor);
+    bool initialize();
+    bool initialized = false;
+
+    // Acceso a hardware principal
     SensorManager* sensorManager;
     LitterboxStepperMotor* litterboxMotor;
-    
-    bool initialized;
-
-    // ✅ CONFIGURACIÓN DINÁMICA DE DISPOSITIVO
-    static const int MAX_SENSORS = 5;  // Máximo 5 sensores por dispositivo
-    String deviceIdentifier;           // ej: "ARENERO-001"  
-    String deviceType_str;             // ej: "litterbox"
-    bool deviceConfigured;
-    
-    String sensorIdentifiers[MAX_SENSORS];  // ej: ["TEMP_ARENERO-001", "ULTRA_ARENERO-001", ...]
-    bool sensorConfigured[MAX_SENSORS];     // true si el sensor está configurado
-
-    // ===== WATER DISPENSER =====
-    unsigned long lastWaterCheck = 0;
-    unsigned long waterPumpStartTime = 0;
-    bool waterPumpRunning = false;
-    static const unsigned long WATER_CHECK_INTERVAL = 5000;
-    static const unsigned long WATER_PUMP_TIMEOUT = 10000;
 
     // ===== UMBRALES DEL ARENERO =====
     static constexpr float DEFAULT_CAT_DETECTION_DISTANCE = 14.0f;
@@ -37,7 +25,14 @@ private:
     static constexpr float DEFAULT_MAX_TEMPERATURE = 35.0f;
     static constexpr float DEFAULT_MIN_TEMPERATURE = 10.0f;
 
-    // Variables de umbrales (modificables desde Raspberry Pi)
+    // ===== UMBRALES DEL COMEDERO (valores por defecto) =====
+    static constexpr float DEFAULT_MIN_WEIGHT = 150.0f;
+    static constexpr float DEFAULT_MAX_WEIGHT = 500.0f;
+    static constexpr float DEFAULT_CAT_EATING_THRESHOLD = 15.0f;
+    static constexpr float DEFAULT_FOOD_EMPTY_DISTANCE = 8.0f;
+    static constexpr float DEFAULT_FOOD_FULL_DISTANCE = 2.0f;
+
+    // ===== UMBRALES ACTUALES DEL ARENERO (modificables desde Raspberry Pi) =====
     float catDetectionDistance;
     float catPresentThreshold;
     float maxGasPPM;
@@ -45,41 +40,25 @@ private:
     float minHumidity;
     float maxTemperature;
     float minTemperature;
-    bool thresholdsConfiguredByRaspberry;
-    unsigned long lastConfigUpdate;
+    bool thresholdsConfiguredByRaspberry = false;
+    unsigned long lastConfigUpdate = 0;
 
-    // ===== UMBRALES DEL COMEDERO =====
-    static constexpr float DEFAULT_MIN_WEIGHT = 150.0f;
-    static constexpr float DEFAULT_MAX_WEIGHT = 500.0f;
-    static constexpr float DEFAULT_CAT_EATING_THRESHOLD = 15.0f;
-    static constexpr float DEFAULT_FOOD_EMPTY_DISTANCE = 8.0f;
-    static constexpr float DEFAULT_FOOD_FULL_DISTANCE = 2.0f;
+    // ===== CONTROL DE AGUA =====
+    unsigned long lastWaterCheck = 0;
+    unsigned long waterPumpStartTime = 0;
+    bool waterPumpRunning = false;
+    static const unsigned long WATER_CHECK_INTERVAL = 5000;
+    static const unsigned long WATER_PUMP_TIMEOUT = 10000;
 
-    // Variables del comedero
-    static constexpr float MIN_WEIGHT_GRAMS = 150.0f;
-    float maxWeightGrams = 500.0f;
-    unsigned long lastFeederCheck = 0;
-    unsigned long feederMotorStartTime = 0;
-    bool feederMotorRunning = false;
-    float lastWeightBeforeRefill = 0.0;
-    static const unsigned long FEEDER_TIMEOUT_MS = 30000;
-    static const unsigned long CAT_DETECTION_INTERVAL = 5000;
-    
-    // ✅ MÉTODOS DE CONFIGURACIÓN DINÁMICA
-    void processDeviceCommand(String command, String params);
-    void sendAllSensorReadingsWithIdentifiers();
-    void sendAllSensorIdentifiers();
-    bool getAllSensorsConfigured();
-    
-    // ===== MÉTODOS POR DISPOSITIVO =====
+    // ===== MÉTODOS PRINCIPALES =====
+    void processCommand(String command);
+    void update(); // Verificaciones de seguridad continuas + control del comedero
+
+    // ===== VALIDACIONES DE SEGURIDAD DEL ARENERO =====
     void processLitterboxCommand(String command, String params);
-    void processFeederCommand(String command, String params);
-    void processWaterDispenserCommand(String command, String params);
     void processSensorCommand(String command, String params);
     void processConfigCommand(String command, String params);
     void processStatusCommand();
-    
-    // ===== VALIDACIONES DE SEGURIDAD ARENERO =====
     bool isLitterboxSafeToOperate();
     bool isLitterboxSafeToClean();
     bool isCatPresent();
@@ -88,8 +67,19 @@ private:
     String getSafetyStatus();
     void sendAllSensorReadings();
     bool areAllSensorsReady();
-    
-    // ===== CONTROL DEL COMEDERO =====
+
+    // ===== CONTROL INTELIGENTE DEL COMEDERO =====
+    bool isFeederSafeToOperate();
+
+    // ===== GESTIÓN DE UMBRALES =====
+    void initializeDefaultThresholds();
+    void resetToDefaultThresholds();
+    String getCurrentThresholds();
+    void setThresholds(float catThreshold, float gasMax, float humMax, float humMin, float tempMax, float tempMin);
+    bool areThresholdsConfigured() const;
+
+    // ===== COMEDERO: CONTROL Y ESTADO =====
+    void processFeederCommand(String command, String params);
     void updateFeederControl();
     bool isFeederNeedsRefill();
     bool isCatEating();
@@ -98,23 +88,30 @@ private:
     void startAutoRefill();
     void stopAutoRefill();
     void checkFeederTimeout();
-    
-    // ===== CONTROL DEL WATER DISPENSER =====
-    String getWaterDispenserStatus();
-    void updateWaterDispenserControl();
-    
-    // ===== GESTIÓN DE UMBRALES =====
-    void initializeDefaultThresholds();
-    void resetToDefaultThresholds();
-    String getCurrentThresholds();
-    void setThresholds(float catThreshold, float gasMax, float humMax, float humMin, float tempMax, float tempMin);
-    bool areThresholdsConfigured() const;
+    void startFeederRefill();
+    void stopFeederRefill();
 
-public:
-    CommandProcessor(SensorManager* sensors, LitterboxStepperMotor* motor);
-    bool initialize();
-    void processCommand(String command);
-    void update(); // Verificaciones continuas + control automático
+    // ===== CONTROL INTELIGENTE DEL DISPENSADOR DE AGUA =====
+    void updateWaterDispenserControl();
+
+private:
+    // ===== COMEDERO: VARIABLES DE CONTROL =====
+    static constexpr float MIN_WEIGHT_GRAMS = 150.0f;
+    float maxWeightGrams = 500.0f;
+    float minWeightGrams = 150.0f;
+    float catEatingThreshold = 15.0f;
+    float foodEmptyDistance = 8.0f;
+    float foodFullDistance = 2.0f;
+    bool feederThresholdsConfigured = false;
+
+    unsigned long lastFeederCheck = 0;
+    unsigned long feederMotorStartTime = 0;
+    bool feederMotorRunning = false;
+    float lastWeightBeforeRefill = 0.0f;
+
+    bool feederAutoRefillEnabled = false;
+    static const unsigned long FEEDER_TIMEOUT_MS = 30000;
+    static const unsigned long CAT_DETECTION_INTERVAL = 5000;
 };
 
 #endif

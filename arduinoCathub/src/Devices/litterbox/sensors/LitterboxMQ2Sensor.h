@@ -20,9 +20,11 @@ private:
     
     // Función para convertir analógico a PPM
     float analogToPPM(int analogValue);
+
+
     
 public:
-    LitterboxMQ2Sensor();
+    LitterboxMQ2Sensor(const char* id, const char* deviceId);
     bool initialize();
     void update();
     float getValue();       // Valor analógico crudo (0-1023)

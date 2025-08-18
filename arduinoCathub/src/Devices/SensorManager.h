@@ -3,17 +3,18 @@
 
 #include <Arduino.h>
 // Sensores del arenero
-#include "litterbox/LitterboxUltrasonicSensor.h"
-#include "litterbox/LitterboxDHTSensor.h"
-#include "litterbox/LitterboxMQ2Sensor.h"
+#include "litterbox/sensors/LitterboxUltrasonicSensor.h"
+#include "litterbox/sensors/LitterboxDHTSensor.h"
+#include "litterbox/sensors/LitterboxMQ2Sensor.h"
+#include "litterbox/actuators/LitterboxStepperMotor.h"
 // Sensores del comedero
-#include "feeder/FeederWeightSensor.h"
-#include "feeder/FeederUltrasonicSensor.h"
-#include "feeder/FeederStepperMotor.h"
+#include "feeder/sensors/FeederWeightSensor.h"
+#include "feeder/sensors/FeederUltrasonicSensor.h"
+#include "feeder/actuators/FeederStepperMotor.h"
 // Sensores del bebedero
-#include "waterdispenser/WaterDispenserSensor.h"
-#include "waterdispenser/WaterDispenserPump.h"
-#include "waterdispenser/WaterDispenserIRSensor.h"
+#include "waterdispenser/sensors/WaterDispenserSensor.h"
+#include "waterdispenser/actuators/WaterDispenserPump.h"
+#include "waterdispenser/sensors/WaterDispenserIRSensor.h"
 
 
 class SensorManager {
@@ -40,6 +41,7 @@ private:
     static const unsigned long UPDATE_INTERVAL = 100; // Actualizar cada 100ms
 
 public:
+    void printAllSensorReadings();
     SensorManager();
     ~SensorManager();
     
@@ -60,7 +62,7 @@ public:
     FeederStepperMotor* getFeederMotor();
 
     // ===== MÉTODOS PARA OBTENER DATOS DEL BEBEDERO =====
-    float getWaterLevel();             // Valor analógico del sensor de agua
+    String getWaterLevel();             // Valor analógico del sensor de agua
     bool isWaterDetected();            // ¿Hay agua?
     String getWaterLevelString();      // "DRY", "DAMP", "WET", "FLOOD"
     bool isCatDrinking();              // ¿Gato tomando agua?
@@ -78,6 +80,8 @@ public:
     bool isFeederUltrasonic2Ready();
     bool isFeederMotorReady();
     bool areAllSensorsReady();
+
+
     
     // ===== MÉTODOS DE DIAGNÓSTICO =====
     String getSensorStatus();

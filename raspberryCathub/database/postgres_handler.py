@@ -62,12 +62,9 @@ class PostgresHandler:
             cursor = conn.cursor()
 
             query = """
-                SELECT de.identifier
+                SELECT identifier
                 FROM device_codes c
-                JOIN device_environment de
-                  ON c.device_id = de.device_id
                 WHERE c.code = %s
-                  AND de.active = true
                 LIMIT 1
             """
 

@@ -2,8 +2,8 @@
 #include "../config/SensorIDs.h"
 #include "../../config/DeviceIDs.h"
 
-WaterDispenserIRSensor::WaterDispenserIRSensor() : 
-    objectDetected(false), lastState(false), lastReadTime(0), 
+WaterDispenserIRSensor::WaterDispenserIRSensor(const char* id, const char* deviceId) : 
+    sensorId(id), deviceId(deviceId), objectDetected(false), lastState(false), lastReadTime(0), 
     detectionStartTime(0), sensorReady(false) {}
 
 bool WaterDispenserIRSensor::initialize() {
