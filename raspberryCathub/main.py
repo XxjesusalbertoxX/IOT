@@ -1,62 +1,50 @@
-"""
-Sistema CatHub - Loop Principal
-NUNCA debe crashear - maneja todas las excepciones
-"""
-
-import time
 import logging
+import time
+import signal
 import sys
-from core.sensor_manager import SensorManager
+from core.DeviceManager import DeviceManager
 
 # Configurar logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('cathub.log'),
-        logging.StreamHandler(sys.stdout)
-    ]
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 
+# Variable global para el device manager
+device_manager = None
+
+def signal_handler(sig, frame):
+    """Manejador para cerrar limpiamente"""
+    print('\n🛑 Cerrando aplicación...')
+    if device_manager:
+        device_manager.stop()
+    sys.exit(0)
+
 def main():
-    """Loop principal - NUNCA debe fallar"""
-    logger = logging.getLogger(__name__)
-    logger.info("🐱 INICIANDO SISTEMA CATHUB...")
+    global device_manager
     
-    # Crear manager principal
-    sensor_manager = None
+    # Configurar manejador de señales
+    signal.signal(signal.SIGINT, signal_handler)
     
-    while True:  # ♾️ LOOP INFINITO
+    # Código del dispositivo (en producción podrías leerlo de un archivo o variable de entorno)
+    DEVICE_CODE = "I9J0K1L2"  # Ejemplo: arenero
+    
+    # Crear y iniciar device manager
+    device_manager = DeviceManager(DEVICE_CODE, "/dev/ttyACM0")
+    
+    if device_manager.start():
+        print(f"✅ Dispositivo {DEVICE_CODE} iniciado correctamente")
+        print("⏳ Esperando identifier o eventos...")
+        
+        # Mantener la aplicación corriendo
         try:
-            # Inicializar manager si no existe
-            if sensor_manager is None:
-                logger.info("🔄 Inicializando SensorManager...")
-                sensor_manager = SensorManager()
-                sensor_manager.initialize()
-                logger.info("✅ SensorManager inicializado")
-            
-            # ⚡ CICLO PRINCIPAL
-            sensor_manager.run_cycle()
-            
-            # Pausa corta para no saturar CPU
-            time.sleep(0.1)
-            
+            while True:
+                time.sleep(1)
         except KeyboardInterrupt:
-            logger.info("� Deteniendo sistema por usuario...")
-            break
-            
-        except Exception as e:
-            logger.error(f"❌ ERROR EN LOOP PRINCIPAL: {e}")
-            
-            # Si el error es crítico, reiniciar manager
-            if "critical" in str(e).lower() or sensor_manager is None:
-                logger.warning("🔧 Reiniciando SensorManager...")
-                sensor_manager = None
-                time.sleep(5)  # Pausa antes de reiniciar
-            else:
-                time.sleep(1)  # Pausa corta para errores menores
-    
-    logger.info("👋 Sistema CatHub detenido")
+            print('\n� Cerrando aplicación...')
+            device_manager.stop()
+    else:
+        print(f"❌ No se pudo iniciar dispositivo {DEVICE_CODE}")
 
 if __name__ == "__main__":
     main()

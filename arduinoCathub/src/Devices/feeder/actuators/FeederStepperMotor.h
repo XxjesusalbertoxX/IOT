@@ -5,9 +5,9 @@
 
 class FeederStepperMotor {
 private:
-    static const int DIR_PIN = 12;   // Dirección
-    static const int EN_PIN = 13;    // Enable (activo LOW)
-    static const int PULL_PIN = 14;  // Pulsos (Step)
+    static const int DIR_PIN = 13;   // Dirección
+    static const int EN_PIN = 14;    // Enable (activo LOW)
+    static const int PULL_PIN = 12;  // Pulsos (Step)
     
     static const unsigned long STEP_DELAY_US = 1000; // 1ms entre pulsos
     static const int STEPS_PER_REVOLUTION = 200;     // Pasos por vuelta completa
