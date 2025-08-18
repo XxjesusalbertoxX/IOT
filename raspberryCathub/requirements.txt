@@ -5,10 +5,6 @@ psycopg2-binary==2.9.10
 # Comunicación serial
 pyserial==3.5
 
-# Procesamiento de imágenes y visión computacional
-opencv-python==4.12.0.88
-numpy==2.2.6
-
 # Utilidades
 PyYAML==6.0.2
 
@@ -27,6 +23,5 @@ paho-mqtt==1.6.1
 # Sockets
 websocket-client==1.7.0
 
-# Otros (útiles para desarrollo y compatibilidad)
 requests==2.31.0
 python-dotenv==1.0.1
