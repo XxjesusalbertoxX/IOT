@@ -10,7 +10,7 @@ CommandProcessor::CommandProcessor(SensorManager* sensors, LitterboxStepperMotor
       feederAutoRefillEnabled(true), lastFeederCheck(0),
       feederMotorStartTime(0), feederMotorRunning(false),
       lastWeightBeforeRefill(0.0), lastWaterCheck(0),
-      waterPumpStartTime(0), waterPumpRunning(false) {
+      waterPumpStartTime(0), waterPumpRunning(false), lastAutoCleanTime(0) {
     
     initializeDefaultThresholds();
     
@@ -29,6 +29,40 @@ bool CommandProcessor::initialize() {
     
     initialized = true;
     return true;
+}
+
+void CommandProcessor::processWaterDispenserCommand(String command, String params) {
+    if (command == "STATUS") {
+        String response = "{";
+        response += "\"device\":\"WATERDISPENSER\",";
+        response += "\"water_level\":\"" + sensorManager->getWaterLevel() + "\",";
+        response += "\"cat_drinking\":" + String(sensorManager->isCatDrinking() ? "true" : "false") + ",";
+        response += "\"pump_running\":" + String(waterPumpRunning ? "true" : "false");
+        response += "}";
+        Serial.println(response);
+        
+    } else if (command == "PUMP_ON") {
+        WaterDispenserPump* pump = sensorManager->getWaterPump();
+        if (pump && !sensorManager->isCatDrinking()) {
+            pump->turnOn(WATER_PUMP_TIMEOUT);
+            waterPumpRunning = true;
+            waterPumpStartTime = millis();
+            Serial.println("{\"device\":\"WATERDISPENSER\",\"command\":\"PUMP_ON\",\"success\":true}");
+        } else {
+            Serial.println("{\"device\":\"WATERDISPENSER\",\"command\":\"PUMP_ON\",\"success\":false,\"reason\":\"CAT_PRESENT_OR_PUMP_ERROR\"}");
+        }
+        
+    } else if (command == "PUMP_OFF") {
+        WaterDispenserPump* pump = sensorManager->getWaterPump();
+        if (pump) {
+            pump->turnOff();
+            waterPumpRunning = false;
+            Serial.println("{\"device\":\"WATERDISPENSER\",\"command\":\"PUMP_OFF\",\"success\":true}");
+        }
+        
+    } else {
+        Serial.println("{\"device\":\"WATERDISPENSER\",\"error\":\"UNKNOWN_COMMAND\",\"command\":\"" + command + "\"}");
+    }
 }
 
 void CommandProcessor::processCommand(String command) {
@@ -204,7 +238,22 @@ void CommandProcessor::sendAllSensorReadingsWithIdentifiers() {
 }
 
 bool CommandProcessor::areAllSensorsReady() {
-    return sensorManager->areAllSensorsReady();
+    if (deviceType_str == "litterbox") {
+        return sensorManager->getLitterboxUltrasonicSensor()->isReady() &&
+               sensorManager->getLitterboxDHTSensor()->isReady() &&
+               sensorManager->getLitterboxMQ2Sensor()->isReady();
+    }
+    else if (deviceType_str == "feeder") {
+        return sensorManager->getFeederWeightSensor()->isReady() &&
+               sensorManager->getFeederUltrasonic1()->isReady() &&
+               sensorManager->getFeederUltrasonic2()->isReady();
+    }
+    else if (deviceType_str == "waterdispenser") {
+        return sensorManager->getWaterSensor()->isReady() &&
+               sensorManager->getWaterIRSensor()->isReady();
+    }
+    
+    return false;
 }
 
 // ===== GESTIÓN DE UMBRALES =====

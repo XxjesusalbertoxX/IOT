@@ -5,17 +5,26 @@
 #include "../Devices/SensorManager.h"
 #include "../Devices/litterbox/actuators/LitterboxStepperMotor.h"
 
+static const float MIN_WEIGHT_GRAMS = 150.0f;
+static const unsigned long WATER_PUMP_TIMEOUT = 5000;
+static const unsigned long AUTO_CLEAN_COOLDOWN = 30000;
+
 class CommandProcessor {
 private:
     SensorManager* sensorManager;
     LitterboxStepperMotor* litterboxMotor;
     bool initialized;
 
+    bool waterPumpRunning;
+    unsigned long waterPumpStartTime;
+    unsigned long lastAutoCleanTime;
+
     // ===== CONFIGURACIÓN DINÁMICA DE DISPOSITIVO =====
-    static const int MAX_SENSORS = 5;
     String deviceIdentifier;
     String deviceType_str;
     bool deviceConfigured;
+
+    static const int MAX_SENSORS = 5;
     String sensorIdentifiers[MAX_SENSORS];
     bool sensorConfigured[MAX_SENSORS];
 
