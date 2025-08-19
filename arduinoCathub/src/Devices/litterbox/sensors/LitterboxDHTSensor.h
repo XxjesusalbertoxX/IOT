@@ -22,7 +22,7 @@ private:
     bool sensorReady;
     
 public:
-    LitterboxDHTSensor(const char* id, const char* deviceId);
+    LitterboxDHTSensor(const char* id = SENSOR_ID_LITTER_DHT, const char* deviceId = DEVICE_ID_LITTER);
     bool initialize();
     void update();
     float getTemperature();

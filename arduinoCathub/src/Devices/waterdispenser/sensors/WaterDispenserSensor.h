@@ -19,7 +19,7 @@ private:
     unsigned long lastReadTime;
     bool sensorReady;
 public:
-    WaterDispenserSensor(const char* id, const char* deviceId);
+    WaterDispenserSensor(const char* id = SENSOR_ID_WATER_LEVEL, const char* deviceId = DEVICE_ID_WATER);
     bool initialize();
     void update();
     float getAnalogValue();

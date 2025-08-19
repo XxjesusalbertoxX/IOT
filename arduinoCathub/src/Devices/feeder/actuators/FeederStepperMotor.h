@@ -2,6 +2,8 @@
 #define FEEDER_STEPPER_MOTOR_H
 
 #include <Arduino.h>
+#include "../config/ActuatorIDs.h"
+#include "../../config/DeviceIDs.h"
 
 class FeederStepperMotor {
 private:
@@ -12,13 +14,15 @@ private:
     static const unsigned long STEP_DELAY_US = 1000; // 1ms entre pulsos
     static const int STEPS_PER_REVOLUTION = 200;     // Pasos por vuelta completa
     
+    const char* actuatorId;
+    const char* deviceId;
     bool motorEnabled;
     bool motorReady;
     int currentPosition;
     bool direction; // true = clockwise, false = counterclockwise
     
 public:
-    FeederStepperMotor();
+    FeederStepperMotor(const char* id = ACTUATOR_FEEDER_MOTOR_ID_1, const char* devId = DEVICE_ID_FEEDER);
     bool initialize();
     void enable();
     void disable();
@@ -28,6 +32,8 @@ public:
     void feedPortion(int portions = 1); // Alimentar porciones
     bool isEnabled();
     bool isReady();
+    const char* getActuatorId();
+    const char* getDeviceId();
     String getStatus();
     int getCurrentPosition();
 };

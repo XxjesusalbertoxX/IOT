@@ -2,6 +2,8 @@
 #define LITTERBOX_STEPPER_MOTOR_H
 
 #include <Arduino.h>
+#include "../config/ActuatorIDs.h"
+#include "../../config/DeviceIDs.h"
 
 class LitterboxStepperMotor {
 public:
@@ -12,7 +14,12 @@ public:
         BLOCKED = -1    // Bloqueado por sensores
     };
 
-    LitterboxStepperMotor();
+private:
+    const char* actuatorId;
+    const char* deviceId;
+
+public:
+    LitterboxStepperMotor(const char* id = ACTUATOR_LITTERBOX_MOTOR_ID_1, const char* devId = DEVICE_ID_LITTER);
     bool initialize();
 
     // ===== COMANDOS PRINCIPALES DESDE RASPBERRY =====
@@ -28,6 +35,8 @@ public:
     bool isTorqueActive() const;
     int getCurrentPosition() const;
     String getStateString() const;
+    const char* getActuatorId();
+    const char* getDeviceId();
     String getStatus();
 
     // ===== EMERGENCIA =====

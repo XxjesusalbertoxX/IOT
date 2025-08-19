@@ -2,6 +2,8 @@
 #define WATER_DISPENSER_PUMP_H
 
 #include <Arduino.h>
+#include "../config/ActuatorIDs.h"
+#include "../../config/DeviceIDs.h"
 
 class WaterDispenserPump {
 private:
@@ -9,6 +11,8 @@ private:
     static const int PUMP_POWER = 255;
     static const unsigned long MAX_PUMP_TIME = 10000;
     
+    const char* actuatorId;
+    const char* deviceId;
     bool pumpEnabled;
     bool pumpRunning;
     bool pumpReady;
@@ -17,7 +21,7 @@ private:
     int currentPower;
     
 public:
-    WaterDispenserPump();
+    WaterDispenserPump(const char* id = ACTUATOR_WATERDISPENSER_PUMP_ID_1, const char* devId = DEVICE_ID_WATER);
     bool initialize();
     void turnOn(unsigned long duration = 3000);
     void turnOff();
@@ -28,6 +32,8 @@ public:
     void update();
     String getStatus();
     void emergencyStop();
+    const char* getActuatorId();
+    const char* getDeviceId();
 };
 
 #endif

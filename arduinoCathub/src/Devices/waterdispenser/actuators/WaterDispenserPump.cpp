@@ -1,7 +1,7 @@
 #include "WaterDispenserPump.h"
 
-WaterDispenserPump::WaterDispenserPump() : 
-    pumpEnabled(true), pumpRunning(false), pumpReady(false),
+WaterDispenserPump::WaterDispenserPump(const char* id, const char* devId) : 
+    actuatorId(id), deviceId(devId), pumpEnabled(true), pumpRunning(false), pumpReady(false),
     pumpStartTime(0), pumpDuration(0), currentPower(PUMP_POWER) {}
 
 bool WaterDispenserPump::initialize() {
@@ -75,4 +75,12 @@ void WaterDispenserPump::emergencyStop() {
     pumpEnabled = false;
     pumpStartTime = 0;
     pumpDuration = 0;
+}
+
+const char* WaterDispenserPump::getActuatorId() {
+    return actuatorId;
+}
+
+const char* WaterDispenserPump::getDeviceId() {
+    return deviceId;
 }

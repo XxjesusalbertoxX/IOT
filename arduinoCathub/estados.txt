@@ -1,0 +1,6 @@
+
+c = todos los sensores 
+arn1 = 1, 2, 2.1 y 2.2
+fdr1 = 1 y 2 #para cambiar de estados por el sensor seran las configuracion
+wtp1 = 1 y 2
+

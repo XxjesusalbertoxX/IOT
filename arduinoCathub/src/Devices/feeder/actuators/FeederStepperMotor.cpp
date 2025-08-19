@@ -1,7 +1,7 @@
 #include "FeederStepperMotor.h"
 
-FeederStepperMotor::FeederStepperMotor() : 
-    motorEnabled(false), motorReady(false), currentPosition(0), direction(true) {}
+FeederStepperMotor::FeederStepperMotor(const char* id, const char* devId) : 
+    actuatorId(id), deviceId(devId), motorEnabled(false), motorReady(false), currentPosition(0), direction(true) {}
 
 bool FeederStepperMotor::initialize() {
     pinMode(DIR_PIN, OUTPUT);
@@ -85,4 +85,12 @@ String FeederStepperMotor::getStatus() {
 
 int FeederStepperMotor::getCurrentPosition() {
     return currentPosition;
+}
+
+const char* FeederStepperMotor::getActuatorId() {
+    return actuatorId;
+}
+
+const char* FeederStepperMotor::getDeviceId() {
+    return deviceId;
 }

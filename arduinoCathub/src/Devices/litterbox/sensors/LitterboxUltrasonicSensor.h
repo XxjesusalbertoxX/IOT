@@ -22,7 +22,7 @@ private:
     static constexpr float CAT_INSIDE_THRESHOLD_CM = 3.0; // Umbral para detectar gato dentro del arenero
     
 public:
-    LitterboxUltrasonicSensor(const char* id, const char* deviceId);
+    LitterboxUltrasonicSensor(const char* id = SENSOR_ID_LITTER_ULTRA, const char* deviceId = DEVICE_ID_LITTER);
     bool initialize();
     void update();
     float getDistance();

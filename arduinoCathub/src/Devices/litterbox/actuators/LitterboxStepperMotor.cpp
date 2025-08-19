@@ -6,8 +6,8 @@ const int LitterboxStepperMotor::PULL_PIN = 17;
 const unsigned long LitterboxStepperMotor::STEP_DELAY_US = 1000;
 const int LitterboxStepperMotor::STEPS_PER_REVOLUTION = 200;
 
-LitterboxStepperMotor::LitterboxStepperMotor() :
-    motorEnabled(false), motorReady(false), torqueActive(false),
+LitterboxStepperMotor::LitterboxStepperMotor(const char* id, const char* devId) :
+    actuatorId(id), deviceId(devId), motorEnabled(false), motorReady(false), torqueActive(false),
     currentPosition(0), direction(true), currentState(EMPTY),
     homePosition(0), readyPosition(0) {}
 
@@ -248,4 +248,12 @@ void LitterboxStepperMotor::emergencyStop() {
     torqueActive = false;
     currentState = BLOCKED;
     Serial.println("{\"device\":\"LITTERBOX\",\"emergency\":\"STOPPED\"}");
+}
+
+const char* LitterboxStepperMotor::getActuatorId() {
+    return actuatorId;
+}
+
+const char* LitterboxStepperMotor::getDeviceId() {
+    return deviceId;
 }

@@ -24,7 +24,7 @@ private:
     static const unsigned long DEBOUNCE_TIME = 50;
     
 public:
-    WaterDispenserIRSensor(const char* id, const char* deviceId); // <--- AGREGA ESTA LÍNEA
+    WaterDispenserIRSensor(const char* id = SENSOR_ID_WATER_IR, const char* deviceId = DEVICE_ID_WATER);
     bool initialize();
     void update();
     bool isObjectDetected();

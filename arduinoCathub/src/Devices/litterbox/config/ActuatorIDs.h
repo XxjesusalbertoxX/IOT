@@ -1,0 +1,1 @@
+#define ACTUATOR_LITTERBOX_MOTOR_ID_1   "motor_1"
