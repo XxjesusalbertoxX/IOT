@@ -8,8 +8,8 @@
 // Sensor para detectar presencia del gato
 class FeederUltrasonicSensor1 {
 private:
-    static const int TRIG_PIN = 9;   // Pin trigger para sensor 1
-    static const int ECHO_PIN = 10;  // Pin echo para sensor 1
+    static const int TRIG_PIN = 4;   // Pin trigger para sensor 1
+    static const int ECHO_PIN = 5;  // Pin echo para sensor 1
     static const unsigned long READ_INTERVAL = 100;
     static const unsigned long TIMEOUT_US = 25000; // 25ms = ~4m máximo
     
@@ -34,8 +34,8 @@ public:
 // Sensor para medir nivel de comida en dispensador
 class FeederUltrasonicSensor2 {
 private:
-    static const int TRIG_PIN = 11;  // Pin trigger para sensor 2
-    static const int ECHO_PIN = 12;  // Pin echo para sensor 2
+    static const int TRIG_PIN = 6;  // Pin trigger para sensor 2
+    static const int ECHO_PIN = 7;  // Pin echo para sensor 2
     static const unsigned long READ_INTERVAL = 100;
     static const unsigned long TIMEOUT_US = 25000; // 25ms = ~4m máximo
     

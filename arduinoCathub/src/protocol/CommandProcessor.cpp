@@ -1,13 +1,14 @@
 #include "CommandProcessor.h"
 #include <ArduinoJson.h>
 
-CommandProcessor::CommandProcessor(SensorManager* sensors, LitterboxStepperMotor* litter, 
-  FeederStepperMotor* feeder, WaterDispenserPump* water) 
-    : sensorManager(sensors), litterboxMotor(litter), feederMotor(feeder), waterPump(water),
-      initialized(false), feederEnabled(true), targetWeight(400), manualFeederControl(false),
-      lastFeederRetry(0), litterboxState(1) {
-}
 
+CommandProcessor::CommandProcessor(SensorManager* sensors, LitterboxStepperMotor* litter, 
+                                 FeederStepperMotor* feeder, WaterDispenserPump* water) : 
+    sensorManager(sensors), litterboxMotor(litter), feederMotor(feeder), waterPump(water),
+    initialized(false), feederEnabled(true), targetWeight(50), manualFeederControl(false), 
+    lastFeederRetry(0), litterboxState(1), 
+    waterDispenserEnabled(true), lastWaterCheck(0) {}
+    
 bool CommandProcessor::initialize() {
     if (sensorManager == nullptr || litterboxMotor == nullptr || 
         feederMotor == nullptr || waterPump == nullptr) {
@@ -422,7 +423,7 @@ void CommandProcessor::sendAllDevicesStatus() {
     response += "\"sensors\":{";
     response += "\"water_level\":\"" + sensorManager->getWaterLevel() + "\",";
     response += "\"cat_drinking\":" + String(sensorManager->isCatDrinking() ? "true" : "false") + ",";
-    response += "\"ir_detected\":" + String(sensorManager->isWaterIRTriggered() ? "true" : "false");
+    response += "\"ir_detected\":" + String(sensorManager->isCatDrinking() ? "true" : "false");
     response += "},";
     response += "\"actuators\":{";
     response += "\"pump_running\":" + String(waterPump->isPumpRunning() ? "true" : "false") + ",";

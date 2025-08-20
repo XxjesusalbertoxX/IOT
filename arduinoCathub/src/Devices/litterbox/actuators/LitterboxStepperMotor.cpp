@@ -63,8 +63,7 @@ bool LitterboxStepperMotor::executeNormalCleaning() {
 
     Serial.println("{\"device\":\"LITTERBOX\",\"action\":\"NORMAL_CLEANING_START\",\"state_code\":\"2.1\"}");
     
-    // Recordar posición inicial
-    int startPosition = currentPosition;
+    // Iniciar limpieza normal
     
     // Girar 270 grados a la derecha
     setDirection(true); // Derecha

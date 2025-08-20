@@ -2,6 +2,7 @@
 #define SENSOR_MANAGER_H
 
 #include <Arduino.h>
+#include "config/DeviceIDs.h"
 #include "litterbox/sensors/LitterboxUltrasonicSensor.h"
 #include "litterbox/sensors/LitterboxDHTSensor.h"
 #include "litterbox/sensors/LitterboxMQ2Sensor.h"

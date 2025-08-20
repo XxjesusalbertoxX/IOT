@@ -24,7 +24,7 @@ private:
 
     
 public:
-    LitterboxMQ2Sensor(const char* id = SENSOR_ID_LITTER_MQ2, const char* deviceId = DEVICE_ID_LITTER);
+    LitterboxMQ2Sensor(const char* id = SENSOR_ID_LITTER_MQ2, const char* deviceId = DEVICE_ID_LITTERBOX);
     bool initialize();
     void update();
     float getValue();       // Valor analógico crudo (0-1023)

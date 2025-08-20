@@ -40,7 +40,7 @@ private:
     int degreesToSteps(int degrees);
 
 public:
-    LitterboxStepperMotor(const char* id = ACTUATOR_LITTERBOX_MOTOR_ID_1, const char* devId = DEVICE_ID_LITTER);
+    LitterboxStepperMotor(const char* id = ACTUATOR_LITTERBOX_MOTOR_ID_1, const char* devId = DEVICE_ID_LITTERBOX);
     bool initialize();
 
     // ===== COMANDOS PRINCIPALES =====
