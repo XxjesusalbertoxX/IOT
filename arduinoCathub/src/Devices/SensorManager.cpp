@@ -106,11 +106,12 @@ float SensorManager::getLitterboxHumidity() {
     return -1.0;
 }
 
+// Línea 110, cambiar getGasPPM() de vuelta a getPPM():
+
 float SensorManager::getLitterboxGasPPM() {
-    if (mq2Sensor && mq2Sensor->isReady()) return mq2Sensor->getPPM();
+    if (mq2Sensor && mq2Sensor->isReady()) return mq2Sensor->getPPM();  // 🔥 Usar getPPM() que es el método correcto
     return -1.0;
 }
-
 LitterboxStepperMotor* SensorManager::getLitterboxMotor() {
     return litterboxMotor;
 }

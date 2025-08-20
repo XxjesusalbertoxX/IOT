@@ -2,7 +2,6 @@
 #define SENSOR_MANAGER_H
 
 #include <Arduino.h>
-#include "config/DeviceIDs.h"
 #include "litterbox/sensors/LitterboxUltrasonicSensor.h"
 #include "litterbox/sensors/LitterboxDHTSensor.h"
 #include "litterbox/sensors/LitterboxMQ2Sensor.h"
@@ -58,8 +57,8 @@ public:
     String getWaterLevel();
     bool isWaterDetected();
     bool isCatDrinking();
-    WaterDispenserSensor* getWaterSensor() { return waterSensor; }
     WaterDispenserPump* getWaterPump();
+    WaterDispenserSensor* getWaterSensor() { return waterSensor; }  // 🔥 Agregar este método
     
     // ===== MÉTODOS DE ESTADO =====
     bool isLitterboxUltrasonicReady();

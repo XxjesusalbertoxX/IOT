@@ -35,6 +35,41 @@ void CommandProcessor::processCommand(String command) {
         sendAllDevicesStatus();
         return;
     }
+
+    if (command == "WATER_ON") {
+        waterPump->turnOn(120000);  // 2 minutos = 120,000 ms
+        Serial.println("{\"manual_command\":\"WATER_PUMP_ON\",\"duration_ms\":120000,\"duration_min\":2}");
+        return;
+    }
+    
+    if (command == "WATER_OFF") {
+        waterPump->turnOff();
+        Serial.println("{\"manual_command\":\"WATER_PUMP_OFF\"}");
+        return;
+    }
+    
+    if (command == "WATER_STATUS") {
+        String response = "{\"manual_command\":\"WATER_STATUS\",";
+        response += "\"water_level\":\"" + sensorManager->getWaterLevel() + "\",";
+        response += "\"analog_value\":" + String(sensorManager->getWaterSensor()->getAnalogValue()) + ",";
+        response += "\"cat_drinking\":" + String(sensorManager->isCatDrinking() ? "true" : "false") + ",";
+        response += "\"pump_running\":" + String(waterPump->isPumpRunning() ? "true" : "false") + ",";
+        response += "\"remaining_time_ms\":" + String(waterPump->getRemainingTime()) + "}";
+        Serial.println(response);
+        return;
+    }
+    
+    // ===== FORMATO: FDR1:WIT_001:{gramos} =====
+    if (command.startsWith("FDR1:WIT_001:")) {
+        String weightStr = command.substring(12);
+        int weight = weightStr.toInt();
+        if (weight > 0) {
+            setTargetWeight(weight);
+        } else {
+            Serial.println("{\"device_id\":\"FDR1\",\"error\":\"INVALID_WEIGHT\",\"received\":\"" + weightStr + "\"}");
+        }
+        return;
+    }
     
     // ===== NUEVO FORMATO: FDR1:WIT_001:{gramos} =====
     if (command.startsWith("FDR1:WIT_001:")) {
@@ -60,6 +95,8 @@ void CommandProcessor::processCommand(String command) {
         processDeviceIDCommand(command);
         return;
     }
+
+
     
     // ===== COMANDO DESCONOCIDO =====
     Serial.println("{\"error\":\"UNKNOWN_COMMAND\",\"received\":\"" + command + "\"}");

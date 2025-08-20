@@ -75,7 +75,7 @@ String WaterDispenserPump::getStatus() {
 }
 
 void WaterDispenserPump::emergencyStop() {
-    analogWrite(PUMP_PIN, 0);
+    digitalWrite(PUMP_PIN, 0);
     pumpRunning = false;
     pumpEnabled = false;
     pumpStartTime = 0;

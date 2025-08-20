@@ -26,25 +26,22 @@ void setup() {
     delay(2000); // Dar tiempo para que los sensores se estabilicen
 }
 
-void loop() {
-    // ✅ SIEMPRE actualizar sensores para que tengan datos frescos
-    sensorManager.poll();
 
-    // Actualizar los actuadores que necesiten update
-    feederMotor.update();
-    
-    // ✅ PROCESAR comandos de la Ras cuando lleguen
+void loop() {
+    // Leer comandos del Serial
     if (Serial.available()) {
         String command = Serial.readStringUntil('\n');
-        command.trim();
-        
-        if (command.length() > 0) {
-            commandProcessor.processCommand(command);
-        }
+        commandProcessor.processCommand(command);
     }
     
-    // ✅ Actualizar lógica automatizada
+    // Actualizar sensores
+    sensorManager.poll();
+    
+    // 🔥 ACTUALIZAR SISTEMA AUTOMÁTICO (MUY IMPORTANTE)
     commandProcessor.update();
     
-    delay(10); // Pequeña pausa para no saturar
+    // 🔥 ACTUALIZAR BOMBA DE AGUA DIRECTAMENTE TAMBIÉN
+    waterPump.update();  // <-- Usa punto, no flecha
+    
+    delay(50); // Pequeña pausa para no saturar
 }
