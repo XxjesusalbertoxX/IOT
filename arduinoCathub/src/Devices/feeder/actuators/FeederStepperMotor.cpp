@@ -1,7 +1,9 @@
 #include "FeederStepperMotor.h"
 
 FeederStepperMotor::FeederStepperMotor(const char* id, const char* devId) : 
-    actuatorId(id), deviceId(devId), motorEnabled(false), motorReady(false), currentPosition(0), direction(true) {}
+    actuatorId(id), deviceId(devId), motorEnabled(false), motorReady(false), 
+    motorRunning(false), currentSpeed(50), currentPosition(0), direction(true),
+    lastStepTime(0) {}
 
 bool FeederStepperMotor::initialize() {
     pinMode(DIR_PIN, OUTPUT);
@@ -26,6 +28,7 @@ void FeederStepperMotor::enable() {
 }
 
 void FeederStepperMotor::disable() {
+    motorRunning = false;
     digitalWrite(EN_PIN, HIGH); // Desactivar
     motorEnabled = false;
 }
@@ -34,6 +37,10 @@ void FeederStepperMotor::setDirection(bool clockwise) {
     direction = clockwise;
     digitalWrite(DIR_PIN, clockwise ? HIGH : LOW);
     delayMicroseconds(5); // Tiempo de setup para TB6600
+}
+
+void FeederStepperMotor::setSpeed(int speed) {
+    currentSpeed = constrain(speed, 0, 255);
 }
 
 void FeederStepperMotor::step(int steps) {
@@ -69,6 +76,36 @@ void FeederStepperMotor::feedPortion(int portions) {
     Serial.println("{\"device\":\"FEEDER\",\"action\":\"FEED\",\"portions\":" + String(portions) + ",\"degrees\":" + String(totalDegrees) + "}");
 }
 
+void FeederStepperMotor::startContinuous() {
+    if (!motorEnabled || !motorReady) return;
+    
+    motorRunning = true;
+    lastStepTime = micros();
+}
+
+void FeederStepperMotor::stopContinuous() {
+    motorRunning = false;
+}
+
+void FeederStepperMotor::update() {
+    if (!motorRunning || !motorEnabled || !motorReady) return;
+    
+    // Ajustar velocidad según currentSpeed (0-255)
+    // Mayor velocidad = menor delay entre pasos
+    unsigned long stepDelay = map(currentSpeed, 0, 255, 10000, 1000); // 10ms a 1ms
+    
+    unsigned long now = micros();
+    if (now - lastStepTime >= stepDelay) {
+        digitalWrite(PULL_PIN, HIGH);
+        delayMicroseconds(50);
+        digitalWrite(PULL_PIN, LOW);
+        
+        // Actualizar posición
+        currentPosition += (direction ? 1 : -1);
+        lastStepTime = now;
+    }
+}
+
 bool FeederStepperMotor::isEnabled() {
     return motorEnabled;
 }
@@ -79,6 +116,7 @@ bool FeederStepperMotor::isReady() {
 
 String FeederStepperMotor::getStatus() {
     if (!motorReady) return "NOT_INITIALIZED";
+    if (motorRunning) return "RUNNING";
     if (motorEnabled) return "ENABLED";
     return "DISABLED";
 }

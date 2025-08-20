@@ -33,6 +33,8 @@ void loop() {
     }
     // ✅ SIEMPRE actualizar sensores para que tengan datos frescos
     sensorManager.poll();
+
+    feederMotor->update();
     
     // ✅ PROCESAR comandos de la Ras cuando lleguen
     if (Serial.available()) {
@@ -46,6 +48,7 @@ void loop() {
     
     // ✅ Actualizar actuadores
     commandProcessor.update();
+
     
     // ❌ YA NO enviamos datos automáticamente cada 3 segundos
     
