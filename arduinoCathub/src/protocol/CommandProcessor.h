@@ -22,6 +22,11 @@ private:
     bool manualFeederControl;     // Control manual del comedero (botón presionado)
     unsigned long lastFeederRetry;// Último intento de rellenar automático
     int litterboxState;           // 1=inactivo, 2=activo, 2.1=cleaning_normal, 2.2=cleaning_deep
+
+        bool feederRefillInProgress;          // 🔥 Estado del proceso de rellenado
+    unsigned long feederRefillStartTime;  // 🔥 Tiempo de inicio del rellenado
+    float feederRefillStartWeight;        // 🔥 Peso inicial antes del rellenado
+    static const unsigned long FEEDER_REFILL_MAX_MS = 5000;  // 🔥 Máximo 5 segundos de rellenado
     
     // ===== MÉTODOS PRINCIPALES =====
     void processDeviceIDCommand(String command);

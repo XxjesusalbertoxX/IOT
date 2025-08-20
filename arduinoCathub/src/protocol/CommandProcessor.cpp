@@ -6,7 +6,8 @@ CommandProcessor::CommandProcessor(SensorManager* sensors, LitterboxStepperMotor
   FeederStepperMotor* feeder, WaterDispenserPump* water) 
     : sensorManager(sensors), litterboxMotor(litter), feederMotor(feeder), waterPump(water),
       initialized(false), feederEnabled(true), targetWeight(400), manualFeederControl(false),
-      lastFeederRetry(0), litterboxState(1) {
+      lastFeederRetry(0), litterboxState(1),
+      feederRefillInProgress(false), feederRefillStartTime(0), feederRefillStartWeight(0.0f) {  // 🔥 Inicializar nuevas variables
 }
 
 bool CommandProcessor::initialize() {
@@ -286,6 +287,19 @@ void CommandProcessor::setTargetWeight(int grams) {
 }
 
 void CommandProcessor::controlFeederMotor(bool on) {
+    // 🔥 VERIFICAR SI HAY REFILL AUTOMÁTICO EN PROGRESO
+    if (feederRefillInProgress && on) {
+        Serial.println("{\"device_id\":\"FDR1\",\"action\":\"manual_control\",\"success\":false,\"reason\":\"AUTO_REFILL_IN_PROGRESS\"}");
+        return;
+    }
+    
+    // 🔥 SI SE ACTIVA CONTROL MANUAL, CANCELAR REFILL AUTOMÁTICO
+    if (on && feederRefillInProgress) {
+        feederMotor->stopContinuous();
+        feederRefillInProgress = false;
+        Serial.println("{\"auto_action\":\"FEEDER_REFILL\",\"status\":\"CANCELLED_BY_MANUAL_CONTROL\"}");
+    }
+    
     manualFeederControl = on;
     
     if (on) {
@@ -303,7 +317,7 @@ void CommandProcessor::controlFeederMotor(bool on) {
         // Activar motor a velocidad 50 hacia la izquierda
         feederMotor->enable();
         feederMotor->setDirection(false); // Izquierda
-        feederMotor->setSpeed(50);        // Velocidad 50
+        feederMotor->setSpeed(50);        // Velocidad 50 (manual más lento que auto)
         feederMotor->startContinuous();   // Modo continuo
         
         Serial.println("{\"device_id\":\"FDR1\",\"action\":\"manual_control\",\"success\":true,\"motor\":\"ON\",\"direction\":\"LEFT\",\"speed\":50}");
@@ -316,67 +330,42 @@ void CommandProcessor::controlFeederMotor(bool on) {
 }
 
 void CommandProcessor::attemptFeederRefill() {
-    // Verificar condiciones de seguridad
+    // ===== VERIFICACIONES PREVIAS =====
+    if (feederRefillInProgress) {
+        Serial.println("{\"auto_action\":\"FEEDER_REFILL\",\"status\":\"ALREADY_IN_PROGRESS\"}");
+        return;
+    }
+    
     if (!isFeederSafeToOperate()) {
         Serial.println("{\"auto_action\":\"FEEDER_REFILL\",\"status\":\"ABORTED\",\"reason\":\"CAT_TOO_CLOSE\"}");
         return;
     }
     
-    // Verificar si hay suficiente comida en el almacenamiento
     if (!hasSufficientFood()) {
         Serial.println("{\"auto_action\":\"FEEDER_REFILL\",\"status\":\"ABORTED\",\"reason\":\"INSUFFICIENT_FOOD_STORAGE\"}");
         return;
     }
     
-    // Verificar si ya alcanzamos el peso objetivo
     float currentWeight = sensorManager->getFeederWeight();
     if (currentWeight >= targetWeight) {
         Serial.println("{\"auto_action\":\"FEEDER_REFILL\",\"status\":\"NOT_NEEDED\",\"current_weight\":" + String(currentWeight) + ",\"target_weight\":" + String(targetWeight) + "}");
         return;
     }
     
-    // Todo OK, iniciar rellenado
+    // ===== INICIAR PROCESO NO-BLOQUEANTE =====
     feederMotor->enable();
-    feederMotor->setDirection(false); // Izquierda
-    feederMotor->setSpeed(50);        // Velocidad 50
-    feederMotor->startContinuous();   // Modo continuo
+    feederMotor->setDirection(false); // Izquierda para dispensar
+    feederMotor->setSpeed(120);       // 🔥 Velocidad ajustada (era 50, ahora 120)
+    feederMotor->startContinuous();
     
-    // Esperar hasta 5 segundos verificando si el peso aumenta
-    unsigned long startTime = millis();
-    float startWeight = currentWeight;
-    bool weightIncreased = false;
+    // ===== CONFIGURAR VARIABLES DE ESTADO =====
+    feederRefillInProgress = true;
+    feederRefillStartTime = millis();
+    feederRefillStartWeight = currentWeight;
     
-    while (millis() - startTime < 5000) { // Máximo 5 segundos
-        delay(500); // Verificar cada 0.5 segundos
-        
-        float newWeight = sensorManager->getFeederWeight();
-        if (newWeight > startWeight + 5.0) { // +5g para evitar ruido
-            weightIncreased = true;
-            break;
-        }
-        
-        // Si alcanzamos el objetivo o el gato se acerca, detenerse
-        if (newWeight >= targetWeight || !isFeederSafeToOperate()) {
-            break;
-        }
-    }
-    
-    // Detener motor
-    feederMotor->stopContinuous();
-    
-    // Registrar el resultado
-    float finalWeight = sensorManager->getFeederWeight();
-    
-    if (finalWeight >= targetWeight) {
-        Serial.println("{\"auto_action\":\"FEEDER_REFILL\",\"status\":\"COMPLETED\",\"weight_before\":" + String(startWeight) + ",\"weight_after\":" + String(finalWeight) + ",\"target_met\":true}");
-    } else if (weightIncreased) {
-        Serial.println("{\"auto_action\":\"FEEDER_REFILL\",\"status\":\"PARTIAL\",\"weight_before\":" + String(startWeight) + ",\"weight_after\":" + String(finalWeight) + ",\"weight_change\":" + String(finalWeight - startWeight) + "}");
-    } else {
-        Serial.println("{\"auto_action\":\"FEEDER_REFILL\",\"status\":\"FAILED\",\"weight_before\":" + String(startWeight) + ",\"weight_after\":" + String(finalWeight) + ",\"reason\":\"NO_WEIGHT_INCREASE\"}");
-    }
-    
-    // Actualizar timestamp de último intento
-    lastFeederRetry = millis();
+    Serial.println("{\"auto_action\":\"FEEDER_REFILL\",\"status\":\"STARTED\",\"start_weight\":" + 
+                   String(feederRefillStartWeight) + ",\"target_weight\":" + String(targetWeight) + 
+                   ",\"speed\":120}");
 }
 
 // ===== VALIDACIONES DE SEGURIDAD =====
@@ -477,16 +466,70 @@ void CommandProcessor::update() {
     static unsigned long lastUpdate = 0;
     unsigned long now = millis();
     
-    // Actualizar cada 2 segundos
-    if (now - lastUpdate >= 2000) {
+    // 🔥 ACTUALIZAR CADA 500ms PARA MAYOR REACTIVIDAD (era 2000ms)
+    if (now - lastUpdate >= 500) {
         
-        // ===== AUTO-RELLENADO DEL COMEDERO (CADA 3 MINUTOS) =====
-        if (feederEnabled && !manualFeederControl) {
+        // ===== CONTROL DEL PROCESO DE REFILL NO-BLOQUEANTE =====
+        if (feederRefillInProgress) {
+            float currentWeight = sensorManager->getFeederWeight();
+            float weightIncrease = currentWeight - feederRefillStartWeight;
+            unsigned long elapsedTime = now - feederRefillStartTime;
+            
+            // 🔥 CONDICIÓN 1: Peso suficiente alcanzado
+            if (currentWeight >= targetWeight) {
+                feederMotor->stopContinuous();
+                feederMotor->disable();
+                feederRefillInProgress = false;
+                Serial.println("{\"auto_action\":\"FEEDER_REFILL\",\"status\":\"TARGET_REACHED\",\"final_weight\":" + 
+                               String(currentWeight) + ",\"weight_added\":" + String(weightIncrease) + 
+                               ",\"duration_ms\":" + String(elapsedTime) + "}");
+            }
+            // 🔥 CONDICIÓN 2: Aumento mínimo detectado (+5g)
+            else if (weightIncrease >= 5.0) {
+                feederMotor->stopContinuous();
+                feederMotor->disable();
+                feederRefillInProgress = false;
+                Serial.println("{\"auto_action\":\"FEEDER_REFILL\",\"status\":\"SUFFICIENT_INCREASE\",\"final_weight\":" + 
+                               String(currentWeight) + ",\"weight_added\":" + String(weightIncrease) + 
+                               ",\"duration_ms\":" + String(elapsedTime) + "}");
+            }
+            // 🔥 CONDICIÓN 3: Timeout alcanzado (5 segundos)
+            else if (elapsedTime >= FEEDER_REFILL_MAX_MS) {
+                feederMotor->stopContinuous();
+                feederMotor->disable();
+                feederRefillInProgress = false;
+                Serial.println("{\"auto_action\":\"FEEDER_REFILL\",\"status\":\"TIMEOUT\",\"final_weight\":" + 
+                               String(currentWeight) + ",\"weight_added\":" + String(weightIncrease) + 
+                               ",\"duration_ms\":" + String(elapsedTime) + "}");
+            }
+            // 🔥 CONDICIÓN 4: Emergencia - gato se acerca
+            else if (!isFeederSafeToOperate()) {
+                feederMotor->stopContinuous();
+                feederMotor->disable();
+                feederRefillInProgress = false;
+                Serial.println("{\"auto_action\":\"FEEDER_REFILL\",\"status\":\"EMERGENCY_STOP\",\"reason\":\"CAT_DETECTED\",\"final_weight\":" + 
+                               String(currentWeight) + ",\"weight_added\":" + String(weightIncrease) + 
+                               ",\"duration_ms\":" + String(elapsedTime) + "}");
+            }
+            
+            // 🔥 DEBUG: Progreso cada 1 segundo durante el refill
+            static unsigned long lastProgressLog = 0;
+            if (now - lastProgressLog >= 1000) {
+                Serial.println("{\"refill_progress\":{\"elapsed_ms\":" + String(elapsedTime) + 
+                               ",\"weight\":" + String(currentWeight) + ",\"weight_added\":" + 
+                               String(weightIncrease) + ",\"target\":" + String(targetWeight) + "}}");
+                lastProgressLog = now;
+            }
+        }
+        
+        // ===== AUTO-RELLENADO DEL COMEDERO (CADA 3 MINUTOS) - Solo si no está en progreso =====
+        if (feederEnabled && !manualFeederControl && !feederRefillInProgress) {
             float weight = sensorManager->getFeederWeight();
             
             // Si peso < objetivo y pasaron 3 minutos desde el último intento
             if (weight < targetWeight && (now - lastFeederRetry >= 180000)) { // 180000ms = 3 minutos
                 attemptFeederRefill();
+                lastFeederRetry = now; // 🔥 Actualizar timestamp
             }
         }
         
@@ -496,7 +539,7 @@ void CommandProcessor::update() {
         
         // 🔥 ACTIVAR BOMBA: Si agua NO está al máximo Y no hay gato
         if (waterLevel != "FLOOD" && !catNearWater && !waterPump->isPumpRunning()) {
-            waterPump->turnOn(30000); // 30 segundos máximo (se parará cuando llegue a FLOOD)
+            waterPump->turnOn(30000); // 30 segundos máximo
             Serial.println("{\"auto_action\":\"WATER_PUMP_STARTED\",\"level\":\"" + waterLevel + "\",\"reason\":\"REFILL_NEEDED\"}");
         }
         
@@ -513,13 +556,11 @@ void CommandProcessor::update() {
         }
         
         // ===== MONITOREO DEL ARENERO =====
-        // 1. Verificar limpieza programada (solo si está en estado ACTIVE)
         if (litterboxMotor->getState() == 2 && litterboxMotor->shouldPerformCleaning() && isLitterboxSafeToOperate()) {
             Serial.println("{\"auto_action\":\"LITTERBOX_SCHEDULED_CLEANING\",\"reason\":\"INTERVAL_REACHED\"}");
             startNormalCleaning();
         }
         
-        // 2. Bloquear si se detecta gato o niveles peligrosos
         if (litterboxMotor->getState() > 0 && !isLitterboxSafeToOperate()) {
             litterboxMotor->setBlocked();
             litterboxState = -1;

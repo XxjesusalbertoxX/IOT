@@ -33,8 +33,7 @@ private:
     
     bool initialized;
     unsigned long lastUpdateTime;
-    static const unsigned long UPDATE_INTERVAL = 100;
-
+    static const unsigned long UPDATE_INTERVAL = 50;
 public:
     // 🔥 NUEVO CONSTRUCTOR CON INYECCIÓN DE DEPENDENCIAS
     SensorManager(LitterboxUltrasonicSensor* litterboxUltrasonic,
