@@ -1,5 +1,6 @@
 #include "WaterDispenserPump.h"
 
+// 🔥 SOLO UN CONSTRUCTOR (eliminar el duplicado)
 WaterDispenserPump::WaterDispenserPump(const char* id, const char* devId) : 
     actuatorId(id), deviceId(devId), pumpEnabled(true), pumpRunning(false), pumpReady(false),
     pumpStartTime(0), pumpDuration(0), currentPower(PUMP_POWER) {}
@@ -56,9 +57,13 @@ unsigned long WaterDispenserPump::getRemainingTime() {
 
 void WaterDispenserPump::update() {
     if (!pumpRunning || pumpStartTime == 0) return;
-    unsigned long elapsed = millis() - pumpStartTime;
-    if (elapsed >= pumpDuration) {
-        turnOff();
+    
+    // Solo verificar duración normal (auto-llenado)
+    if (pumpDuration > 0) {
+        unsigned long elapsed = millis() - pumpStartTime;
+        if (elapsed >= pumpDuration) {
+            turnOff();
+        }
     }
 }
 

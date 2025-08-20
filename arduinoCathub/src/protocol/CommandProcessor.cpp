@@ -1,704 +1,328 @@
 #include "CommandProcessor.h"
+#include <ArduinoJson.h>
 
-CommandProcessor::CommandProcessor(SensorManager* sensors, LitterboxStepperMotor* motor) 
-    : sensorManager(sensors), litterboxMotor(motor), initialized(false),
-      deviceIdentifier(""), deviceType_str(""), deviceConfigured(false),
-      catDetectionDistance(DEFAULT_CAT_DETECTION_DISTANCE), catPresentThreshold(DEFAULT_CAT_PRESENT_THRESHOLD),
-      maxGasPPM(DEFAULT_MAX_GAS_PPM), maxHumidity(DEFAULT_MAX_HUMIDITY), minHumidity(DEFAULT_MIN_HUMIDITY),
-      maxTemperature(DEFAULT_MAX_TEMPERATURE), minTemperature(DEFAULT_MIN_TEMPERATURE),
-      thresholdsConfiguredByRaspberry(false), lastConfigUpdate(0), lastAutoCleanTime(0),
-      maxWeightGrams(500.0f), minWeightGrams(150.0f), catEatingThreshold(15.0f), 
-      foodEmptyDistance(8.0f), foodFullDistance(2.0f), feederThresholdsConfigured(false),
-      feederAutoRefillEnabled(true), lastFeederCheck(0), feederMotorStartTime(0),
-      feederMotorRunning(false), lastWeightBeforeRefill(0.0),
-      lastWaterCheck(0), waterPumpStartTime(0), waterPumpRunning(false) {
-    
-    initializeDefaultThresholds();
-    
-    // Inicializar arrays de identificadores
-    for (int i = 0; i < MAX_SENSORS; i++) {
-        sensorIdentifiers[i] = "";
-        sensorConfigured[i] = false;
-    }
+CommandProcessor::CommandProcessor(SensorManager* sensors, LitterboxStepperMotor* litter, 
+  FeederStepperMotor* feeder, WaterDispenserPump* water) 
+    : sensorManager(sensors), litterboxMotor(litter), feederMotor(feeder), waterPump(water),
+      initialized(false), feederEnabled(true), litterboxState(1) {
 }
 
 bool CommandProcessor::initialize() {
-    if (sensorManager == nullptr || litterboxMotor == nullptr) {
-        Serial.println("{\"error\":\"SENSOR_MANAGER_NOT_INITIALIZED\"}");
+    if (sensorManager == nullptr || litterboxMotor == nullptr || 
+        feederMotor == nullptr || waterPump == nullptr) {
+        Serial.println("{\"error\":\"COMPONENTS_NOT_INITIALIZED\"}");
         return false;
     }
     
     initialized = true;
+    Serial.println("{\"system\":\"COMMAND_PROCESSOR_READY\"}");
     return true;
-}
-
-void CommandProcessor::processWaterDispenserCommand(String command, String params) {
-    if (command == "STATUS") {
-        String response = "{";
-        response += "\"device\":\"WATERDISPENSER\",";
-        response += "\"water_level\":\"" + sensorManager->getWaterLevel() + "\",";
-        response += "\"cat_drinking\":" + String(sensorManager->isCatDrinking() ? "true" : "false") + ",";
-        response += "\"pump_running\":" + String(waterPumpRunning ? "true" : "false");
-        response += "}";
-        Serial.println(response);
-        
-    } else if (command == "PUMP_ON") {
-        WaterDispenserPump* pump = sensorManager->getWaterPump();
-        if (pump && !sensorManager->isCatDrinking()) {
-            pump->turnOn(WATER_PUMP_TIMEOUT);
-            waterPumpRunning = true;
-            waterPumpStartTime = millis();
-            Serial.println("{\"device\":\"WATERDISPENSER\",\"command\":\"PUMP_ON\",\"success\":true}");
-        } else {
-            Serial.println("{\"device\":\"WATERDISPENSER\",\"command\":\"PUMP_ON\",\"success\":false,\"reason\":\"CAT_PRESENT_OR_PUMP_ERROR\"}");
-        }
-        
-    } else if (command == "PUMP_OFF") {
-        WaterDispenserPump* pump = sensorManager->getWaterPump();
-        if (pump) {
-            pump->turnOff();
-            waterPumpRunning = false;
-            Serial.println("{\"device\":\"WATERDISPENSER\",\"command\":\"PUMP_OFF\",\"success\":true}");
-        }
-        
-    } else {
-        Serial.println("{\"device\":\"WATERDISPENSER\",\"error\":\"UNKNOWN_COMMAND\",\"command\":\"" + command + "\"}");
-    }
 }
 
 void CommandProcessor::processCommand(String command) {
     command.trim();
     if (command.length() == 0) return;
-
+    
+    // ===== COMANDO PING =====
     if (command == "PING") {
-        Serial.println("PONG");
+        Serial.println("{\"response\":\"PONG\"}");
         return;
     }
 
-    int firstColon = command.indexOf(':');
-    int secondColon = command.indexOf(':', firstColon + 1);
-    
-    if (firstColon == -1) {
-        Serial.println("{\"error\":\"INVALID_COMMAND_FORMAT\"}");
-        return;
-    }
-
-    String device = command.substring(0, firstColon);
-    String cmd = (secondColon == -1) ? command.substring(firstColon + 1) : command.substring(firstColon + 1, secondColon);
-    String params = (secondColon == -1) ? "" : command.substring(secondColon + 1);
-
-    if (device == "DEVICE") {
-        processDeviceCommand(cmd, params);
-    } else if (device == "SENSOR") {
-        processSensorCommand(cmd, params);
-    } else if (device == "SENSORS") {
-        processSensorCommand(cmd, params);
-    } else if (device == "LITTERBOX") {
-        processLitterboxCommand(cmd, params);
-    } else if (device == "FEEDER") {
-        processFeederCommand(cmd, params);
-    } else if (device == "WATERDISPENSER") {  // 👈 AGREGAR ESTA LÍNEA
-        processWaterDispenserCommand(cmd, params);
-    } else if (device == "CONFIG") {
-        processConfigCommand(cmd, params);
-    } else if (device == "STATUS") {
-        processStatusCommand();
-    } else {
-        Serial.println("{\"error\":\"UNKNOWN_DEVICE\",\"device\":\"" + device + "\"}");
-    }
-}
-
-void CommandProcessor::processDeviceCommand(String command, String params) {
-    if (command == "CONFIGURE") {
-        // Formato: "DEVICE:CONFIGURE:ARENERO-001,litterbox"
-        int commaIndex = params.indexOf(',');
-        if (commaIndex == -1) {
-            Serial.println("{\"error\":\"INVALID_CONFIGURE_FORMAT\"}");
-            return;
-        }
-        
-        String identifier = params.substring(0, commaIndex);
-        String deviceType = params.substring(commaIndex + 1);
-        
-        this->deviceIdentifier = identifier;
-        this->deviceType_str = deviceType;
-        this->deviceConfigured = true;
-        
-        Serial.println("{\"device\":\"DEVICE\",\"command\":\"CONFIGURE\",\"success\":true,\"identifier\":\"" + identifier + "\",\"type\":\"" + deviceType + "\"}");
-    } else {
-        Serial.println("{\"device\":\"DEVICE\",\"error\":\"UNKNOWN_COMMAND\"}");
-    }
-}
-
-void CommandProcessor::processSensorCommand(String command, String params) {
-    if (command == "SET_ID") {
-        // Formato: "SENSOR:SET_ID:0,TEMP_ARENERO-001"
-        int commaIndex = params.indexOf(',');
-        if (commaIndex == -1) {
-            Serial.println("{\"error\":\"INVALID_SET_ID_FORMAT\"}");
-            return;
-        }
-        
-        int sensorIndex = params.substring(0, commaIndex).toInt();
-        String sensorId = params.substring(commaIndex + 1);
-        
-        if (sensorIndex >= 0 && sensorIndex < MAX_SENSORS) {
-            this->sensorIdentifiers[sensorIndex] = sensorId;
-            this->sensorConfigured[sensorIndex] = true;
-            
-            Serial.println("{\"device\":\"SENSOR\",\"command\":\"SET_ID\",\"success\":true,\"index\":" + 
-                           String(sensorIndex) + ",\"identifier\":\"" + sensorId + "\"}");
-        } else {
-            Serial.println("{\"error\":\"INVALID_SENSOR_INDEX\"}");
-        }
-    } else if (command == "READ_ALL") {
-        sendAllSensorReadingsWithIdentifiers();
-    } else {
-        Serial.println("{\"device\":\"SENSORS\",\"error\":\"UNKNOWN_COMMAND\"}");
-    }
-}
-
-void CommandProcessor::sendAllSensorReadingsWithIdentifiers() {
-    if (!deviceConfigured) {
-        Serial.println("{\"error\":\"DEVICE_NOT_CONFIGURED\"}");
+    // ===== COMANDO ALL =====
+    if (command == "ALL") {
+        sendAllDevicesStatus();
         return;
     }
     
-    String deviceType = this->deviceType_str;
+    // ===== FORMATO: DeviceID:comando (SOLO LTR1 y FDR1) =====
+    if (command.startsWith("LTR1:") || command.startsWith("FDR1:")) {
+        processDeviceIDCommand(command);
+        return;
+    }
     
-    if (deviceType == "litterbox") {
-        String response = "{";
-        response += "\"device_id\":\"" + deviceIdentifier + "\",";
-        response += "\"sensor_readings\":{";
-        
-        if (sensorConfigured[0])
-            response += "\"" + sensorIdentifiers[0] + "\":" + String(sensorManager->getLitterboxDistance()) + ",";
-        
-        if (sensorConfigured[1])
-            response += "\"" + sensorIdentifiers[1] + "\":" + String(sensorManager->getLitterboxTemperature()) + ",";
-        
-        if (sensorConfigured[2])
-            response += "\"" + sensorIdentifiers[2] + "\":" + String(sensorManager->getLitterboxHumidity()) + ",";
-        
-        if (sensorConfigured[3])
-            response += "\"" + sensorIdentifiers[3] + "\":" + String(sensorManager->getLitterboxGasPPM());
-        
-        // Quitar la última coma si es necesario
-        if (response.endsWith(","))
-            response.remove(response.length() - 1);
-            
-        response += "}}";
-        Serial.println(response);
-    }
-    else if (deviceType == "feeder") {
-        String response = "{";
-        response += "\"device_id\":\"" + deviceIdentifier + "\",";
-        response += "\"sensor_readings\":{";
-        
-        if (sensorConfigured[0])
-            response += "\"" + sensorIdentifiers[0] + "\":" + String(sensorManager->getFeederWeight()) + ",";
-        
-        if (sensorConfigured[1])
-            response += "\"" + sensorIdentifiers[1] + "\":" + String(sensorManager->getFeederCatDistance()) + ",";
-        
-        if (sensorConfigured[2])
-            response += "\"" + sensorIdentifiers[2] + "\":" + String(sensorManager->getFeederFoodDistance());
-        
-        // Quitar la última coma si es necesario
-        if (response.endsWith(","))
-            response.remove(response.length() - 1);
-            
-        response += "}}";
-        Serial.println(response);
-    }
-    else if (deviceType == "waterdispenser") {
-        String response = "{";
-        response += "\"device_id\":\"" + deviceIdentifier + "\",";
-        response += "\"sensor_readings\":{";
-        
-        // Sensor de nivel de agua (ultrasónico)
-        if (sensorConfigured[0])
-            response += "\"" + sensorIdentifiers[0] + "\":\"" + sensorManager->getWaterLevel() + "\",";
-        
-        // Sensor IR para detectar gato bebiendo
-        if (sensorConfigured[1]) {
-            bool catDrinking = sensorManager->isCatDrinking();
-            response += "\"" + sensorIdentifiers[1] + "\":" + String(catDrinking ? "true" : "false");
+    // ===== COMANDO DESCONOCIDO =====
+    Serial.println("{\"error\":\"UNKNOWN_COMMAND\",\"received\":\"" + command + "\"}");
+}
+
+void CommandProcessor::processDeviceIDCommand(String command) {
+    int colonIndex = command.indexOf(':');
+    if (colonIndex == -1) return;
+    
+    String deviceID = command.substring(0, colonIndex);
+    String action = command.substring(colonIndex + 1);
+    
+    // ===== ARENERO (LTR1) =====
+    if (deviceID == "LTR1") {
+        if (action == "all") {
+            sendLitterboxStatus();
         }
-        
-        // Quitar la última coma si es necesario
-        if (response.endsWith(","))
-            response.remove(response.length() - 1);
-            
-        response += "}}";
-        Serial.println(response);
+        else if (action == "1") {
+            setLitterboxReady();
+        }
+        else if (action == "2.1") {
+            startNormalCleaning();
+        }
+        else if (action == "2.2") {
+            startDeepCleaning();
+        }
+        else {
+            Serial.println("{\"device_id\":\"LTR1\",\"error\":\"INVALID_ACTION\",\"action\":\"" + action + "\",\"valid\":[\"all\",\"1\",\"2.1\",\"2.2\"]}");
+        }
     }
+    
+    // ===== COMEDERO (FDR1) =====
+    else if (deviceID == "FDR1") {
+        if (action == "all") {
+            sendFeederStatus();
+        }
+        else if (action == "0") {
+            disableFeeder();
+        }
+        else if (action == "1") {
+            enableFeeder();
+        }
+        else {
+            Serial.println("{\"device_id\":\"FDR1\",\"error\":\"INVALID_ACTION\",\"action\":\"" + action + "\",\"valid\":[\"all\",\"0\",\"1\"]}");
+        }
+    }
+    
+    // ===== DEVICE ID DESCONOCIDO =====
     else {
-        Serial.println("{\"error\":\"UNKNOWN_DEVICE_TYPE\",\"device_type\":\"" + deviceType + "\"}");
+        Serial.println("{\"error\":\"UNKNOWN_DEVICE_ID\",\"device_id\":\"" + deviceID + "\",\"valid\":[\"LTR1\",\"FDR1\"]}");
     }
 }
 
-bool CommandProcessor::areAllSensorsReady() {
-    if (deviceType_str == "litterbox") {
-        return sensorManager->isLitterboxUltrasonicReady() &&
-               sensorManager->isLitterboxDHTReady() &&
-               sensorManager->isLitterboxMQ2Ready();
-    }
-    else if (deviceType_str == "feeder") {
-        return sensorManager->isFeederWeightReady() &&
-               sensorManager->isFeederCatUltrasonicReady() &&
-               sensorManager->isFeederFoodUltrasonicReady();
-    }
-    else if (deviceType_str == "waterdispenser") {
-        return sensorManager->isWaterLevelReady() &&
-               sensorManager->isWaterIRReady();
-    }
-    
-    // Si no hay tipo específico, verificar todos los sensores
-    return sensorManager->areAllSensorsReady();
+// ===== IMPLEMENTACIÓN ARENERO (LTR1) =====
+void CommandProcessor::sendLitterboxStatus() {
+    String response = "{";
+    response += "\"device_id\":\"LTR1\",";
+    response += "\"type\":\"litterbox\",";
+    response += "\"state\":" + String(litterboxState) + ",";
+    response += "\"status\":{";
+    response += "\"cat_present\":" + String(isCatPresent() ? "true" : "false") + ",";
+    response += "\"safe_to_clean\":" + String(isLitterboxSafeToClean() ? "true" : "false") + ",";
+    response += "\"distance_cm\":" + String(sensorManager->getLitterboxDistance()) + ",";
+    response += "\"temperature_c\":" + String(sensorManager->getLitterboxTemperature()) + ",";
+    response += "\"humidity_percent\":" + String(sensorManager->getLitterboxHumidity()) + ",";
+    response += "\"gas_ppm\":" + String(sensorManager->getLitterboxGasPPM()) + ",";
+    response += "\"motor_ready\":" + String(litterboxMotor->isReady() ? "true" : "false");
+    response += "},";
+    response += "\"timestamp\":" + String(millis());
+    response += "}";
+    Serial.println(response);
 }
 
-// ===== GESTIÓN DE UMBRALES =====
-void CommandProcessor::initializeDefaultThresholds() {
-    catDetectionDistance = DEFAULT_CAT_DETECTION_DISTANCE;
-    catPresentThreshold = DEFAULT_CAT_PRESENT_THRESHOLD;
-    maxGasPPM = DEFAULT_MAX_GAS_PPM;
-    maxHumidity = DEFAULT_MAX_HUMIDITY;
-    minHumidity = DEFAULT_MIN_HUMIDITY;
-    maxTemperature = DEFAULT_MAX_TEMPERATURE;
-    minTemperature = DEFAULT_MIN_TEMPERATURE;
-    thresholdsConfiguredByRaspberry = false;
-}
-
-void CommandProcessor::resetToDefaultThresholds() {
-    initializeDefaultThresholds();
-}
-
-String CommandProcessor::getCurrentThresholds() {
-    return "{\"cat_threshold\":" + String(catPresentThreshold) + 
-           ",\"gas_max\":" + String(maxGasPPM) + 
-           ",\"humidity_max\":" + String(maxHumidity) + 
-           ",\"humidity_min\":" + String(minHumidity) + 
-           ",\"temperature_max\":" + String(maxTemperature) + 
-           ",\"temperature_min\":" + String(minTemperature) + 
-           ",\"configured_by_raspberry\":" + String(thresholdsConfiguredByRaspberry) + "}";
-}
-
-void CommandProcessor::setThresholds(float catThreshold, float gasMax, float humMax, float humMin, float tempMax, float tempMin) {
-    if (catThreshold > 0 && catThreshold < 20 &&
-        gasMax > 0 && gasMax < 5000 &&
-        humMax > humMin && humMax <= 100 &&
-        humMin >= 0 && humMin < humMax &&
-        tempMax > tempMin && tempMax <= 60 &&
-        tempMin >= -10 && tempMin < tempMax) {
-        
-        catPresentThreshold = catThreshold;
-        maxGasPPM = gasMax;
-        maxHumidity = humMax;
-        minHumidity = humMin;
-        maxTemperature = tempMax;
-        minTemperature = tempMin;
-        
-        Serial.println("{\"threshold_update\":\"SUCCESS\",\"values\":" + getCurrentThresholds() + "}");
-    } else {
-        Serial.println("{\"threshold_update\":\"FAILED\",\"error\":\"INVALID_VALUES\",\"keeping\":\"CURRENT_VALUES\"}");
-    }
-}
-
-bool CommandProcessor::areThresholdsConfigured() const {
-    return thresholdsConfiguredByRaspberry;
-}
-
-void CommandProcessor::update() {
-    // ✅ VERIFICACIÓN CONTINUA DE SEGURIDAD CADA 2 SEGUNDOS
-    static unsigned long lastSafetyCheck = 0;
-    unsigned long now = millis();
-    
-    if (now - lastSafetyCheck >= 2000) { // Cada 2 segundos
-        
-        // Solo verificar si el motor está activo (READY)
-        if (litterboxMotor->isReady()) {
-            
-            // 🚨 AUTO-BLOQUEAR si detecta gato presente
-            if (isCatPresent()) {
-                float distance = sensorManager->getLitterboxDistance();
-                litterboxMotor->setState(-1); // BLOCKED
-                Serial.println("{\"db_alert\":{\"type\":\"AUTO_BLOCKED_CAT\",\"device\":\"LITTERBOX\",\"distance\":" + String(distance) + ",\"threshold\":" + String(catPresentThreshold) + ",\"timestamp\":" + String(millis()) + "}}");
-            }
-            
-            // 🚨 AUTO-BLOQUEAR si detecta arenero muy sucio
-            else if (!isLitterboxClean()) {
-                float gasPPM = sensorManager->getLitterboxGasPPM();
-                float humidity = sensorManager->getLitterboxHumidity();
-                float temperature = sensorManager->getLitterboxTemperature();
-                
-                litterboxMotor->setState(-1); // BLOCKED
-                Serial.println("{\"db_alert\":{\"type\":\"AUTO_BLOCKED_DIRTY\",\"device\":\"LITTERBOX\",\"gas_ppm\":" + String(gasPPM) + ",\"humidity\":" + String(humidity) + ",\"temperature\":" + String(temperature) + ",\"timestamp\":" + String(millis()) + "}}");
-            }
-        }
-        
-        // 🔄 AUTO-DESBLOQUEAR si las condiciones vuelven a ser seguras
-        else if (litterboxMotor->isBlocked()) {
-            // Verificar que todas las condiciones sean seguras
-            if (!isCatPresent() && isLitterboxClean() && areAllSensorsReady()) {
-                litterboxMotor->setState(0); // EMPTY (la Raspberry Pi debe cambiar a READY)
-                Serial.println("{\"db_alert\":{\"type\":\"AUTO_UNBLOCKED\",\"device\":\"LITTERBOX\",\"message\":\"Condiciones seguras restablecidas - estado EMPTY\",\"distance\":" + String(sensorManager->getLitterboxDistance()) + ",\"gas_ppm\":" + String(sensorManager->getLitterboxGasPPM()) + ",\"timestamp\":" + String(millis()) + "}}");
-            }
-        }
-        
-        lastSafetyCheck = now;
-    }
-    
-    // ✅ ENVÍO DE DATOS EN TIEMPO REAL cada 5 segundos para monitoreo
-    static unsigned long lastDataSend = 0;
-    if (now - lastDataSend >= 5000) {
-        Serial.println("{\"real_time_data\":" + sensorManager->getAllReadings() + ",\"motor_state\":" + String(litterboxMotor->getState()) + "}");
-        lastDataSend = now;
-    }
-    
-    updateFeederControl();
-}
-
-// ...existing code... (mantener todo el código del arenero anterior)
-
-void CommandProcessor::processFeederCommand(String command, String params) {
-    if (command == "SET_MAX_WEIGHT") {
-        float maxWeight = params.toFloat();
-        if (maxWeight > MIN_WEIGHT_GRAMS && maxWeight <= 1000.0f) {
-            maxWeightGrams = maxWeight;
-            Serial.println("{\"device\":\"FEEDER\",\"command\":\"SET_MAX_WEIGHT\",\"success\":true,\"max_weight\":" + String(maxWeight) + "}");
-        } else {
-            Serial.println("{\"device\":\"FEEDER\",\"command\":\"SET_MAX_WEIGHT\",\"success\":false,\"error\":\"INVALID_WEIGHT\",\"must_be\":\">" + String(MIN_WEIGHT_GRAMS) + " and <=1000\"}");
-        }
-        
-    } else if (command == "STATUS") {
-        Serial.println("{\"device\":\"FEEDER\",\"status\":" + getFeederStatus() + "}");
-        
-    // 🔧 MANTENER PARA FUTURAS MEJORAS (pero no activos)
-    } else if (command == "MANUAL_FEED") {
-        Serial.println("{\"device\":\"FEEDER\",\"error\":\"NOT_IMPLEMENTED\",\"message\":\"Solo auto-rellenado disponible\"}");
-    } else if (command == "MANUAL_REFILL") {
-        Serial.println("{\"device\":\"FEEDER\",\"error\":\"NOT_IMPLEMENTED\",\"message\":\"Solo auto-rellenado disponible\"}");
-        
-    } else {
-        Serial.println("{\"device\":\"FEEDER\",\"error\":\"UNKNOWN_COMMAND\",\"command\":\"" + command + "\"}");
-    }
-}
-
-// ===== AUTO-RELLENADO INTELIGENTE =====
-void CommandProcessor::updateFeederControl() {
-    unsigned long now = millis();
-    
-    // ✅ VERIFICAR AUTO-RELLENADO cada 10 segundos
-    if (now - lastFeederCheck >= 10000) {
-        
-        // 🔍 Si peso < 150g Y no está rellenando Y hay comida disponible
-        if (isFeederNeedsRefill() && !feederMotorRunning && hasFood()) {
-            Serial.println("{\"auto_refill\":{\"trigger\":\"LOW_WEIGHT\",\"current\":" + String(sensorManager->getFeederWeight()) + ",\"min\":" + String(MIN_WEIGHT_GRAMS) + "}}");
-            startAutoRefill();
-        }
-        
-        // 🚨 Si no hay comida en el compartimento
-        else if (isFeederNeedsRefill() && !hasFood()) {
-            Serial.println("{\"db_alert\":{\"type\":\"NO_FOOD_CONTAINER\",\"device\":\"FEEDER\",\"weight\":" + String(sensorManager->getFeederWeight()) + ",\"food_distance\":" + String(sensorManager->getFeederFoodDistance()) + ",\"timestamp\":" + String(millis()) + "}}");
-        }
-        
-        lastFeederCheck = now;
-    }
-    
-    // ✅ CONTROL DEL MOTOR AUTO-RELLENANDO
-    if (feederMotorRunning) {
-        float currentWeight = sensorManager->getFeederWeight();
-        
-        // 🎯 PARAR cuando llegue al máximo
-        if (currentWeight >= maxWeightGrams) {
-            stopAutoRefill();
-            Serial.println("{\"auto_refill\":{\"complete\":true,\"final_weight\":" + String(currentWeight) + ",\"target\":" + String(maxWeightGrams) + "}}");
-        }
-        
-        // ⏰ TIMEOUT de seguridad
-        checkFeederTimeout();
-    }
-    
-    // 🐱 DETECTAR GATO COMIENDO cada 5 segundos
-    static unsigned long lastCatCheck = 0;
-    if (now - lastCatCheck >= CAT_DETECTION_INTERVAL) {
-        if (isCatEating()) {
-            Serial.println("{\"db_alert\":{\"type\":\"CAT_EATING\",\"device\":\"FEEDER\",\"distance\":" + String(sensorManager->getFeederCatDistance()) + ",\"weight\":" + String(sensorManager->getFeederWeight()) + ",\"timestamp\":" + String(millis()) + "}}");
-        }
-        lastCatCheck = now;
-    }
-}
-
-bool CommandProcessor::isFeederNeedsRefill() {
-    float currentWeight = sensorManager->getFeederWeight();
-    return (currentWeight >= 0 && currentWeight < MIN_WEIGHT_GRAMS); // < 150g
-}
-
-bool CommandProcessor::isCatEating() {
-    float catDistance = sensorManager->getFeederCatDistance();
-    return (catDistance >= 0 && catDistance <= 15.0f); // Gato cerca del comedero
-}
-
-bool CommandProcessor::hasFood() {
-    float foodDistance = sensorManager->getFeederFoodDistance();
-    return (foodDistance >= 0 && foodDistance < 8.0f); // Hay comida en compartimento
-}
-
-void CommandProcessor::startAutoRefill() {
-    FeederStepperMotor* motor = sensorManager->getFeederMotor();
-    if (motor && hasFood()) {
-        motor->enable();
-        feederMotorRunning = true;
-        feederMotorStartTime = millis();
-        lastWeightBeforeRefill = sensorManager->getFeederWeight();
-        
-        Serial.println("{\"auto_refill\":{\"start\":true,\"initial_weight\":" + String(lastWeightBeforeRefill) + ",\"target\":" + String(maxWeightGrams) + "}}");
-    }
-}
-
-void CommandProcessor::stopAutoRefill() {
-    FeederStepperMotor* motor = sensorManager->getFeederMotor();
-    if (motor) motor->disable();
-    
-    feederMotorRunning = false;
-    Serial.println("{\"auto_refill\":{\"stop\":true,\"final_weight\":" + String(sensorManager->getFeederWeight()) + "}}");
-}
-
-String CommandProcessor::getFeederStatus() {
-
-    float currentWeight = sensorManager->getFeederWeight();
-    float catDistance = sensorManager->getFeederCatDistance();
-    float foodDistance = sensorManager->getFeederFoodDistance();
-    
-    bool needsRefill = isFeederNeedsRefill();
-    bool catEating = isCatEating();
-    bool hasFood = this->hasFood();
-    bool safeToOperate = isFeederSafeToOperate();
-    
-    String status = "{";
-    status += "\"weight_grams\":" + String(currentWeight) + ",";
-    status += "\"cat_distance\":" + String(catDistance) + ",";
-    status += "\"food_distance\":" + String(foodDistance) + ",";
-    status += "\"needs_refill\":" + String(needsRefill) + ",";
-    status += "\"cat_eating\":" + String(catEating) + ",";
-    status += "\"has_food\":" + String(hasFood) + ",";
-    status += "\"safe_to_operate\":" + String(safeToOperate) + ",";
-    status += "\"auto_refill_enabled\":" + String(feederAutoRefillEnabled) + ",";
-    status += "\"motor_running\":" + String(feederMotorRunning) + ",";
-    status += "\"thresholds\":{";
-    status += "\"min_weight\":" + String(minWeightGrams) + ",";
-    status += "\"max_weight\":" + String(maxWeightGrams) + ",";
-    status += "\"cat_eating_threshold\":" + String(catEatingThreshold) + ",";
-    status += "\"food_empty_distance\":" + String(foodEmptyDistance);
-    status += "}}";
-    
-    return status;
-}
-
-void CommandProcessor::startFeederRefill() {
-    if (!isFeederSafeToOperate()) {
-        Serial.println("{\"feeder_error\":\"NOT_SAFE_TO_START_REFILL\"}");
+void CommandProcessor::setLitterboxReady() {
+    if (isCatPresent()) {
+        Serial.println("{\"device_id\":\"LTR1\",\"action\":\"set_ready\",\"success\":false,\"reason\":\"CAT_PRESENT\"}");
         return;
     }
     
-    FeederStepperMotor* motor = sensorManager->getFeederMotor();
-    if (motor) {
-        motor->enable();
-        feederMotorRunning = true;
-        feederMotorStartTime = millis();
-        lastWeightBeforeRefill = sensorManager->getFeederWeight();
-        
-        Serial.println("{\"feeder_action\":\"REFILL_START\",\"initial_weight\":" + String(lastWeightBeforeRefill) + ",\"target_weight\":" + String(maxWeightGrams) + "}");
-    }
+    litterboxState = 1; // Estado READY
+    litterboxMotor->setState(1);
+    Serial.println("{\"device_id\":\"LTR1\",\"action\":\"set_ready\",\"success\":true,\"state\":1}");
 }
 
-void CommandProcessor::stopFeederRefill() {
-    FeederStepperMotor* motor = sensorManager->getFeederMotor();
-    if (motor) {
-        motor->disable();
+void CommandProcessor::startNormalCleaning() {
+    if (!isLitterboxSafeToClean()) {
+        Serial.println("{\"device_id\":\"LTR1\",\"action\":\"normal_clean\",\"success\":false,\"reason\":\"NOT_SAFE\"}");
+        return;
     }
     
-    feederMotorRunning = false;
-    float finalWeight = sensorManager->getFeederWeight();
+    litterboxState = 21; // Estado 2.1
+    bool started = litterboxMotor->executeNormalCleaning();
     
-    Serial.println("{\"feeder_action\":\"REFILL_STOP\",\"final_weight\":" + String(finalWeight) + ",\"duration_ms\":" + String(millis() - feederMotorStartTime) + "}");
+    Serial.println("{\"device_id\":\"LTR1\",\"action\":\"normal_clean\",\"success\":" + 
+                   String(started ? "true" : "false") + ",\"state\":\"2.1\"}");
 }
 
-void CommandProcessor::checkFeederTimeout() {
-    unsigned long now = millis();
-    unsigned long runTime = now - feederMotorStartTime;
-    
-    // Verificar timeout
-    if (runTime >= FEEDER_TIMEOUT_MS) {
-        float currentWeight = sensorManager->getFeederWeight();
-        float weightDifference = currentWeight - lastWeightBeforeRefill;
-        
-        stopFeederRefill();
-        
-        if (weightDifference < 10.0) { // Si no aumentó al menos 10 gramos
-            Serial.println("{\"feeder_error\":{\"type\":\"FEEDER_JAMMED\",\"message\":\"Motor funcionó pero no aumentó peso - posible atasco\",\"runtime_ms\":" + String(runTime) + ",\"weight_diff\":" + String(weightDifference) + "}}");
-            Serial.println("{\"db_alert\":{\"type\":\"FEEDER_JAMMED\",\"device\":\"FEEDER\",\"runtime_ms\":" + String(runTime) + ",\"weight_increase\":" + String(weightDifference) + ",\"timestamp\":" + String(millis()) + "}}");
-        } else {
-            Serial.println("{\"feeder_error\":{\"type\":\"FEEDER_TIMEOUT\",\"message\":\"Motor se detuvo por timeout\",\"runtime_ms\":" + String(runTime) + "}}");
-        }
+void CommandProcessor::startDeepCleaning() {
+    if (!isLitterboxSafeToClean()) {
+        Serial.println("{\"device_id\":\"LTR1\",\"action\":\"deep_clean\",\"success\":false,\"reason\":\"NOT_SAFE\"}");
+        return;
     }
     
-    // Si el motor está corriendo, hacerlo girar
-    if (feederMotorRunning) {
-        FeederStepperMotor* motor = sensorManager->getFeederMotor();
-        if (motor && motor->isEnabled()) {
-            motor->feedPortion(1); // Dispensar una porción pequeña continuamente
-            delay(500); // Pausa entre porciones
-        }
-    }
+    litterboxState = 22; // Estado 2.2
+    bool started = litterboxMotor->executeDeepCleaning();
+    
+    Serial.println("{\"device_id\":\"LTR1\",\"action\":\"deep_clean\",\"success\":" + 
+                   String(started ? "true" : "false") + ",\"state\":\"2.2\"}");
 }
 
-void CommandProcessor::setFeederThresholds(float minWeight, float maxWeight, float catThreshold, float emptyDistance, float fullDistance) {
-    if (minWeight > 0 && maxWeight > minWeight && catThreshold > 0 && emptyDistance > fullDistance) {
-        minWeightGrams = minWeight;
-        maxWeightGrams = maxWeight;
-        catEatingThreshold = catThreshold;
-        foodEmptyDistance = emptyDistance;
-        foodFullDistance = fullDistance;
-        feederThresholdsConfigured = true;
-        
-        Serial.println("{\"feeder_threshold_update\":\"SUCCESS\",\"thresholds\":{\"min_weight\":" + String(minWeight) + ",\"max_weight\":" + String(maxWeight) + ",\"cat_threshold\":" + String(catThreshold) + ",\"empty_distance\":" + String(emptyDistance) + ",\"full_distance\":" + String(fullDistance) + "}}");
-    } else {
-        Serial.println("{\"feeder_threshold_update\":\"FAILED\",\"error\":\"INVALID_VALUES\"}");
-    }
+// ===== IMPLEMENTACIÓN COMEDERO (FDR1) =====
+void CommandProcessor::sendFeederStatus() {
+    String response = "{";
+    response += "\"device_id\":\"FDR1\",";
+    response += "\"type\":\"feeder\",";
+    response += "\"enabled\":" + String(feederEnabled ? "true" : "false") + ",";
+    response += "\"status\":{";
+    response += "\"weight_grams\":" + String(sensorManager->getFeederWeight()) + ",";
+    response += "\"cat_distance_cm\":" + String(sensorManager->getFeederCatDistance()) + ",";
+    response += "\"food_distance_cm\":" + String(sensorManager->getFeederFoodDistance()) + ",";
+    response += "\"cat_eating\":" + String((sensorManager->getFeederCatDistance() <= 15.0) ? "true" : "false") + ",";
+    response += "\"needs_refill\":" + String((sensorManager->getFeederWeight() < 150.0) ? "true" : "false") + ",";
+    response += "\"has_food\":" + String((sensorManager->getFeederFoodDistance() < 8.0) ? "true" : "false") + ",";
+    response += "\"safe_to_operate\":" + String(isFeederSafeToOperate() ? "true" : "false");
+    response += "},";
+    response += "\"timestamp\":" + String(millis());
+    response += "}";
+    Serial.println(response);
 }
 
-void CommandProcessor::updateWaterDispenserControl() {
-    unsigned long now = millis();
-
-    if (now - lastWaterCheck >= WATER_CHECK_INTERVAL) {
-        String nivel = sensorManager->getWaterLevel();
-        bool catDrinking = false;
-        WaterDispenserPump* pump = sensorManager->getWaterPump(); // <--- AGREGA ESTA LÍNEA
-
-        if (sensorManager->isWaterIRReady()) {
-            catDrinking = sensorManager->isCatDrinking();
-        }
-
-        if (nivel == "DRY" && pump && !pump->isPumpRunning() && !catDrinking) {
-            pump->turnOn(WATER_PUMP_TIMEOUT);
-            waterPumpStartTime = now;
-            waterPumpRunning = true;
-            Serial.println("{\"water_auto\":{\"trigger\":\"LOW_WATER\",\"level\":\"DRY\",\"cat_present\":false}}");
-        }
-
-        if ((nivel == "WET" || nivel == "FLOOD") && pump && pump->isPumpRunning()) {
-            pump->turnOff();
-            waterPumpRunning = false;
-            Serial.println("{\"water_auto\":{\"complete\":true,\"final_level\":\"" + nivel + "\"}}");
-        }
-
-        if (nivel == "DRY" && catDrinking && pump && pump->isPumpRunning()) {
-            pump->turnOff();
-            waterPumpRunning = false;
-            Serial.println("{\"water_auto\":{\"paused\":\"CAT_PRESENT\",\"reason\":\"Cat detected, pump stopped for safety\"}}");
-        }
-
-        lastWaterCheck = now;
+void CommandProcessor::enableFeeder() {
+    if (!isFeederSafeToOperate()) {
+        Serial.println("{\"device_id\":\"FDR1\",\"action\":\"enable\",\"success\":false,\"reason\":\"CAT_TOO_CLOSE\"}");
+        return;
     }
-
-    // Timeout de la bomba
-    WaterDispenserPump* pump = sensorManager->getWaterPump();
-    if (pump && pump->isPumpRunning() && (millis() - waterPumpStartTime > WATER_PUMP_TIMEOUT)) {
-        String nivel = sensorManager->getWaterLevel();
-        pump->turnOff();
-        waterPumpRunning = false;
-        if (nivel == "DRY") {
-            Serial.println("{\"water_error\":\"NO_WATER_IN_RESERVOIR\"}");
-        }
-    }
+    
+    feederEnabled = true;
+    feederMotor->enable();
+    
+    // Dispensar una porción cuando se activa
+    bool dispensed = feederMotor->feedPortion(1);
+    
+    Serial.println("{\"device_id\":\"FDR1\",\"action\":\"enable\",\"success\":true,\"enabled\":true,\"food_dispensed\":" + 
+                   String(dispensed ? "true" : "false") + "}");
 }
 
-// ===== IMPLEMENTACIONES FALTANTES =====
-void CommandProcessor::processLitterboxCommand(String command, String params) {
-    if (command == "CLEAN") {
-        if (isCatPresent()) {
-            Serial.println("{\"device\":\"LITTERBOX\",\"command\":\"CLEAN\",\"success\":false,\"reason\":\"CAT_PRESENT\"}");
-            return;
-        }
-        
-        if (!isLitterboxClean()) {
-            Serial.println("{\"device\":\"LITTERBOX\",\"command\":\"CLEAN\",\"success\":false,\"reason\":\"NOT_SAFE_TO_CLEAN\"}");
-            return;
-        }
-        
-        // Iniciar limpieza
-        bool cleaningStarted = litterboxMotor->executeNormalCleaning();
-        if (cleaningStarted) {
-            Serial.println("{\"device\":\"LITTERBOX\",\"command\":\"CLEAN\",\"success\":true,\"status\":\"CLEANING_STARTED\"}");
-        } else {
-            Serial.println("{\"device\":\"LITTERBOX\",\"command\":\"CLEAN\",\"success\":false,\"reason\":\"MOTOR_ERROR\"}");
-        }
-        
-    } else if (command == "STATUS") {
-        String response = "{";
-        response += "\"device\":\"LITTERBOX\",";
-        response += "\"cat_present\":" + String(isCatPresent() ? "true" : "false") + ",";
-        response += "\"clean\":" + String(isLitterboxClean() ? "true" : "false") + ",";
-        response += "\"distance\":" + String(sensorManager->getLitterboxDistance()) + ",";
-        response += "\"temperature\":" + String(sensorManager->getLitterboxTemperature()) + ",";
-        response += "\"humidity\":" + String(sensorManager->getLitterboxHumidity()) + ",";
-        response += "\"gas_ppm\":" + String(sensorManager->getLitterboxGasPPM());
-        response += "}";
-        Serial.println(response);
-    }
+void CommandProcessor::disableFeeder() {
+    feederEnabled = false;
+    feederMotor->disable();
+    Serial.println("{\"device_id\":\"FDR1\",\"action\":\"disable\",\"success\":true,\"enabled\":false}");
 }
 
-void CommandProcessor::processConfigCommand(String command, String params) {
-    if (command == "SET_THRESHOLDS") {
-        // Implementar configuración de umbrales
-        Serial.println("{\"device\":\"CONFIG\",\"command\":\"SET_THRESHOLDS\",\"success\":true}");
-    } else if (command == "RESET_THRESHOLDS") {
-        resetToDefaultThresholds();
-        Serial.println("{\"device\":\"CONFIG\",\"command\":\"RESET_THRESHOLDS\",\"success\":true}");
-    } else {
-        Serial.println("{\"device\":\"CONFIG\",\"error\":\"UNKNOWN_COMMAND\",\"command\":\"" + command + "\"}");
-    }
-}
-
-void CommandProcessor::processStatusCommand() {
-    String status = "{";
-    status += "\"system\":\"COMMAND_PROCESSOR\",";
-    status += "\"initialized\":" + String(initialized ? "true" : "false") + ",";
-    status += "\"device_configured\":" + String(deviceConfigured ? "true" : "false") + ",";
-    status += "\"device_type\":\"" + deviceType_str + "\",";
-    status += "\"sensors_ready\":" + String(areAllSensorsReady() ? "true" : "false");
-    status += "}";
-    Serial.println(status);
-}
-
+// ===== VALIDACIONES DE SEGURIDAD =====
 bool CommandProcessor::isCatPresent() {
     float distance = sensorManager->getLitterboxDistance();
-    return (distance > 0 && distance < catPresentThreshold);
+    return (distance > 0 && distance <= 6.0);
 }
 
-bool CommandProcessor::isLitterboxClean() {
+bool CommandProcessor::isLitterboxSafeToClean() {
+    if (isCatPresent()) return false;
+    
     float humidity = sensorManager->getLitterboxHumidity();
     float temperature = sensorManager->getLitterboxTemperature();
     float gasPPM = sensorManager->getLitterboxGasPPM();
     
-    return (humidity >= minHumidity && humidity <= maxHumidity &&
-            temperature >= minTemperature && temperature <= maxTemperature &&
-            gasPPM <= maxGasPPM);
+    return (humidity >= 15.0 && humidity <= 80.0 &&
+            temperature >= 10.0 && temperature <= 35.0 &&
+            gasPPM <= 800.0);
 }
 
 bool CommandProcessor::isFeederSafeToOperate() {
-    // Verificar que no hay gato comiendo
     float catDistance = sensorManager->getFeederCatDistance();
-    if (catDistance > 0 && catDistance < 15.0f) { // Gato presente
-        return false;
-    }
+    return (catDistance > 15.0);
+}
+
+// ===== COMANDO ALL (SIN WTR1) =====
+void CommandProcessor::sendAllDevicesStatus() {
+    String response = "{";
+    response += "\"command\":\"ALL\",";
+    response += "\"timestamp\":" + String(millis()) + ",";
+    response += "\"devices\":{";
     
-    // Verificar que el sensor de peso funciona
-    if (!sensorManager->isFeederWeightReady()) {
-        return false;
-    }
+    // ===== ARENERO (LTR1) =====
+    response += "\"LTR1\":{";
+    response += "\"type\":\"litterbox\",";
+    response += "\"state\":" + String(litterboxState) + ",";
+    response += "\"sensors\":{";
+    response += "\"distance_cm\":" + String(sensorManager->getLitterboxDistance()) + ",";
+    response += "\"temperature_c\":" + String(sensorManager->getLitterboxTemperature()) + ",";
+    response += "\"humidity_percent\":" + String(sensorManager->getLitterboxHumidity()) + ",";
+    response += "\"gas_ppm\":" + String(sensorManager->getLitterboxGasPPM()) + ",";
+    response += "\"cat_present\":" + String(isCatPresent() ? "true" : "false") + ",";
+    response += "\"safe_to_clean\":" + String(isLitterboxSafeToClean() ? "true" : "false");
+    response += "},";
+    response += "\"actuators\":{";
+    response += "\"motor_ready\":" + String(litterboxMotor->isReady() ? "true" : "false") + ",";
+    response += "\"motor_state\":" + String(litterboxMotor->getState());
+    response += "}";
+    response += "},";
     
-    return true;
+    // ===== COMEDERO (FDR1) =====
+    response += "\"FDR1\":{";
+    response += "\"type\":\"feeder\",";
+    response += "\"enabled\":" + String(feederEnabled ? "true" : "false") + ",";
+    response += "\"sensors\":{";
+    response += "\"weight_grams\":" + String(sensorManager->getFeederWeight()) + ",";
+    response += "\"cat_distance_cm\":" + String(sensorManager->getFeederCatDistance()) + ",";
+    response += "\"food_distance_cm\":" + String(sensorManager->getFeederFoodDistance()) + ",";
+    response += "\"cat_eating\":" + String((sensorManager->getFeederCatDistance() <= 15.0) ? "true" : "false") + ",";
+    response += "\"needs_refill\":" + String((sensorManager->getFeederWeight() < 150.0) ? "true" : "false") + ",";
+    response += "\"has_food\":" + String((sensorManager->getFeederFoodDistance() < 8.0) ? "true" : "false");
+    response += "},";
+    response += "\"actuators\":{";
+    response += "\"motor_enabled\":" + String(feederMotor->isEnabled() ? "true" : "false") + ",";
+    response += "\"can_dispense\":" + String(isFeederSafeToOperate() ? "true" : "false");
+    response += "}";
+    response += "},";
+    
+    // ===== BEBEDERO (WTR1) - SOLO INFORMACIÓN, NO COMANDOS =====
+    response += "\"WTR1\":{";
+    response += "\"type\":\"waterdispenser\",";
+    response += "\"mode\":\"automatic\",";
+    response += "\"sensors\":{";
+    response += "\"water_level\":\"" + sensorManager->getWaterLevel() + "\",";
+    response += "\"cat_drinking\":" + String(sensorManager->isCatDrinking() ? "true" : "false") + ",";
+    response += "\"ir_detected\":" + String(sensorManager->isWaterIRTriggered() ? "true" : "false");
+    response += "},";
+    response += "\"actuators\":{";
+    response += "\"pump_running\":" + String(waterPump->isPumpRunning() ? "true" : "false") + ",";
+    response += "\"auto_control\":true";
+    response += "}";
+    response += "}";
+    
+    response += "}}";
+    Serial.println(response);
+}
+
+// ===== CONTROL AUTOMÁTICO =====
+void CommandProcessor::update() {
+    static unsigned long lastUpdate = 0;
+    unsigned long now = millis();
+    
+    // Actualizar cada 2 segundos
+    if (now - lastUpdate >= 2000) {
+        
+        // ===== AUTO-RELLENADO DEL COMEDERO =====
+        if (feederEnabled && isFeederSafeToOperate()) {
+            float weight = sensorManager->getFeederWeight();
+            float foodDistance = sensorManager->getFeederFoodDistance();
+            
+            if (weight < 150.0 && foodDistance < 8.0) {
+                feederMotor->feedPortion(1);
+                Serial.println("{\"auto_action\":\"FEEDER_REFILL\",\"weight\":" + String(weight) + "}");
+            }
+        }
+                // ===== 🔥 AUTO-CONTROL DEL BEBEDERO (COMPLETAMENTE AUTOMÁTICO) =====
+                String waterLevel = sensorManager->getWaterLevel();
+                bool catNearWater = sensorManager->isCatDrinking();
+                
+                // 🔥 ACTIVAR BOMBA: Si agua NO está al máximo Y no hay gato
+                if (waterLevel != "FLOOD" && !catNearWater && !waterPump->isPumpRunning()) {
+                    waterPump->turnOn(30000); // 30 segundos máximo (se parará cuando llegue a FLOOD)
+                    Serial.println("{\"auto_action\":\"WATER_PUMP_STARTED\",\"level\":\"" + waterLevel + "\",\"reason\":\"REFILL_NEEDED\"}");
+                }
+                
+                // 🔥 DETENER BOMBA: Si detecta gato (EMERGENCIA)
+                if (catNearWater && waterPump->isPumpRunning()) {
+                    waterPump->turnOff();
+                    Serial.println("{\"auto_action\":\"WATER_PUMP_EMERGENCY_STOP\",\"reason\":\"CAT_DETECTED\"}");
+                }
+                
+                // 🔥 DETENER BOMBA: Si llegó al máximo nivel
+                if (waterLevel == "FLOOD" && waterPump->isPumpRunning()) {
+                    waterPump->turnOff();
+                    Serial.println("{\"auto_action\":\"WATER_PUMP_STOPPED\",\"reason\":\"WATER_LEVEL_FULL\",\"level\":\"FLOOD\"}");
+                }
+        
+        // ===== MONITOREO DEL ARENERO =====
+        if (litterboxState == 1 && isCatPresent()) {
+            litterboxMotor->setState(-1); // BLOCKED
+            Serial.println("{\"safety_alert\":\"LITTERBOX_BLOCKED_CAT_PRESENT\"}");
+        }
+        
+        lastUpdate = now;
+    }
 }

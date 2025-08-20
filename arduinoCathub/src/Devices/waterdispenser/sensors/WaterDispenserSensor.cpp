@@ -42,13 +42,13 @@ bool WaterDispenserSensor::isWaterDetected() {
 
 String WaterDispenserSensor::getWaterLevel() {
     if (lastAnalogValue < DRY_THRESHOLD) {
-        return "DRY";
+        return "DRY";           // Sin agua - BOMBA ON
     } else if (lastAnalogValue < WET_THRESHOLD) {
-        return "WET";
+        return "LOW";           // Poco agua - BOMBA ON
     } else if (lastAnalogValue < FLOOD_THRESHOLD) {
-        return "FLOOD";
+        return "WET";           // Agua suficiente - BOMBA ON aún
     } else {
-        return "UNKNOWN";
+        return "FLOOD";         // Lleno al máximo - BOMBA OFF
     }
 }
 

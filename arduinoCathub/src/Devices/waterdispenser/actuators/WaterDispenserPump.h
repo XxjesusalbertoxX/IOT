@@ -23,9 +23,9 @@ private:
 public:
     WaterDispenserPump(const char* id = ACTUATOR_WATERDISPENSER_PUMP_ID_1, const char* devId = DEVICE_ID_WATER);
     bool initialize();
-    void turnOn(unsigned long duration = 3000);
+    void turnOn(unsigned long duration = 3000);  // Solo para auto-llenado
     void turnOff();
-    void setPower(int power);
+    void setPower(int power);    
     bool isPumpRunning();
     bool isReady();
     unsigned long getRemainingTime();
