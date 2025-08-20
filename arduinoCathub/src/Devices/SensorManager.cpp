@@ -1,3 +1,4 @@
+// SensorManager.cpp
 #include "SensorManager.h"
 #include "config/DeviceIDs.h"
 #include "feeder/config/SensorIDs.h"
@@ -7,57 +8,70 @@
 #include "waterdispenser/config/SensorIDs.h"
 #include "waterdispenser/config/ActuatorIDs.h"
 
-SensorManager::SensorManager() : initialized(false), lastUpdateTime(0) {
-    // Inicializar sensores y actuadores con IDs hardcodeados por defecto
+// 🔥 NUEVO CONSTRUCTOR CON INYECCIÓN DE DEPENDENCIAS
+SensorManager::SensorManager(LitterboxUltrasonicSensor* litterboxUltrasonic,
+                              LitterboxDHTSensor* litterboxDHT,
+                              LitterboxMQ2Sensor* litterboxMQ2,
+                              LitterboxStepperMotor* litterboxMotorPtr,
+                              FeederWeightSensor* feederWeight,
+                              FeederUltrasonicSensor1* feederUltrasonic1Ptr,
+                              FeederUltrasonicSensor2* feederUltrasonic2Ptr,
+                              FeederStepperMotor* feederMotorPtr,
+                              WaterDispenserSensor* waterSensorPtr,
+                              WaterDispenserPump* waterPumpPtr,
+                              WaterDispenserIRSensor* waterIRSensorPtr) 
+    : initialized(false), lastUpdateTime(0) {
     
-    // LITTERBOX SENSORS & ACTUATORS
-    ultrasonicSensor = new LitterboxUltrasonicSensor();
-    dhtSensor = new LitterboxDHTSensor();
-    mq2Sensor = new LitterboxMQ2Sensor();
-    litterboxMotor = new LitterboxStepperMotor();
+    // 🔥 ASIGNAR PUNTEROS EXTERNOS (NO CREAR NUEVOS OBJETOS)
+    ultrasonicSensor = litterboxUltrasonic;
+    dhtSensor = litterboxDHT;
+    mq2Sensor = litterboxMQ2;
+    litterboxMotor = litterboxMotorPtr;
     
-    // FEEDER SENSORS & ACTUATORS
-    weightSensor = new FeederWeightSensor();
-    feederUltrasonic1 = new FeederUltrasonicSensor1();
-    feederUltrasonic2 = new FeederUltrasonicSensor2();
-    feederMotor = new FeederStepperMotor();
+    weightSensor = feederWeight;
+    feederUltrasonic1 = feederUltrasonic1Ptr;
+    feederUltrasonic2 = feederUltrasonic2Ptr;
+    feederMotor = feederMotorPtr;
     
-    // WATER DISPENSER SENSORS & ACTUATORS
-    waterSensor = new WaterDispenserSensor();
-    waterIRSensor = new WaterDispenserIRSensor();
-    waterPump = new WaterDispenserPump();
+    waterSensor = waterSensorPtr;
+    waterPump = waterPumpPtr;
+    waterIRSensor = waterIRSensorPtr;
 }
 
+// 🔥 DESTRUCTOR YA NO ELIMINA OBJETOS (SON EXTERNOS)
 SensorManager::~SensorManager() {
-    delete ultrasonicSensor;
-    delete dhtSensor;
-    delete mq2Sensor;
-    delete litterboxMotor;
-    delete weightSensor;
-    delete feederUltrasonic1;
-    delete feederUltrasonic2;
-    delete feederMotor;
-    delete waterSensor;
-    delete waterPump;
-    delete waterIRSensor;
+    // Los objetos son externos, NO los eliminamos aquí
+    // Solo resetear punteros por seguridad
+    ultrasonicSensor = nullptr;
+    dhtSensor = nullptr;
+    mq2Sensor = nullptr;
+    litterboxMotor = nullptr;
+    weightSensor = nullptr;
+    feederUltrasonic1 = nullptr;
+    feederUltrasonic2 = nullptr;
+    feederMotor = nullptr;
+    waterSensor = nullptr;
+    waterPump = nullptr;
+    waterIRSensor = nullptr;
 }
 
 bool SensorManager::begin() {
     Serial.println("{\"sensor_manager\":\"INITIALIZING\"}");
 
-    bool ultrasonicOK = ultrasonicSensor->initialize();
-    bool dhtOK = dhtSensor->initialize();
-    bool mq2OK = mq2Sensor->initialize();
-    bool litterboxMotorOK = litterboxMotor->initialize();
+    // 🔥 VERIFICAR QUE LOS PUNTEROS NO SEAN NULOS ANTES DE INICIALIZAR
+    bool ultrasonicOK = (ultrasonicSensor != nullptr) ? ultrasonicSensor->initialize() : false;
+    bool dhtOK = (dhtSensor != nullptr) ? dhtSensor->initialize() : false;
+    bool mq2OK = (mq2Sensor != nullptr) ? mq2Sensor->initialize() : false;
+    bool litterboxMotorOK = (litterboxMotor != nullptr) ? litterboxMotor->initialize() : false;
     
-    bool weightOK = weightSensor->initialize();
-    bool feederUltrasonic1OK = feederUltrasonic1->initialize();
-    bool feederUltrasonic2OK = feederUltrasonic2->initialize();
-    bool feederMotorOK = feederMotor->initialize();
+    bool weightOK = (weightSensor != nullptr) ? weightSensor->initialize() : false;
+    bool feederUltrasonic1OK = (feederUltrasonic1 != nullptr) ? feederUltrasonic1->initialize() : false;
+    bool feederUltrasonic2OK = (feederUltrasonic2 != nullptr) ? feederUltrasonic2->initialize() : false;
+    bool feederMotorOK = (feederMotor != nullptr) ? feederMotor->initialize() : false;
     
-    bool waterSensorOK = waterSensor->initialize();
-    bool waterPumpOK = waterPump->initialize();
-    bool waterIROK = waterIRSensor->initialize();
+    bool waterSensorOK = (waterSensor != nullptr) ? waterSensor->initialize() : false;
+    bool waterPumpOK = (waterPump != nullptr) ? waterPump->initialize() : false;
+    bool waterIROK = (waterIRSensor != nullptr) ? waterIRSensor->initialize() : false;
 
     Serial.println("{\"sensor\":\"LITTERBOX_ULTRASONIC\",\"status\":\"" + String(ultrasonicOK ? "OK" : "FAILED") + "\"}");
     Serial.println("{\"sensor\":\"DHT\",\"status\":\"" + String(dhtOK ? "OK" : "FAILED") + "\"}");
@@ -75,9 +89,11 @@ bool SensorManager::begin() {
     Serial.println("{\"sensor_manager\":\"READY\",\"all_systems\":\"INITIALIZED\"}");
     return initialized;
 }
+
 void SensorManager::poll() {
     unsigned long now = millis();
     if (now - lastUpdateTime >= UPDATE_INTERVAL) {
+        // 🔥 VERIFICAR PUNTEROS ANTES DE USAR
         if (ultrasonicSensor) ultrasonicSensor->update();
         if (dhtSensor) dhtSensor->update();
         if (mq2Sensor) mq2Sensor->update();
@@ -106,12 +122,11 @@ float SensorManager::getLitterboxHumidity() {
     return -1.0;
 }
 
-// Línea 110, cambiar getGasPPM() de vuelta a getPPM():
-
 float SensorManager::getLitterboxGasPPM() {
-    if (mq2Sensor && mq2Sensor->isReady()) return mq2Sensor->getPPM();  // 🔥 Usar getPPM() que es el método correcto
+    if (mq2Sensor && mq2Sensor->isReady()) return mq2Sensor->getPPM();
     return -1.0;
 }
+
 LitterboxStepperMotor* SensorManager::getLitterboxMotor() {
     return litterboxMotor;
 }
@@ -218,7 +233,6 @@ String SensorManager::getAllReadings() {
     return readings;
 }
 
-// ✅ IMPLEMENTAR MÉTODO FALTANTE
 void SensorManager::printAllSensorReadings() {
     Serial.println(getAllReadings());
 }

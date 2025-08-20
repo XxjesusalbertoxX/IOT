@@ -1,20 +1,24 @@
+// WaterDispenserPump.cpp
 #include "WaterDispenserPump.h"
 
-// 🔥 SOLO UN CONSTRUCTOR (eliminar el duplicado)
 WaterDispenserPump::WaterDispenserPump(const char* id, const char* devId) : 
     actuatorId(id), deviceId(devId), pumpEnabled(true), pumpRunning(false), pumpReady(false),
     pumpStartTime(0), pumpDuration(0), currentPower(PUMP_POWER) {}
 
 bool WaterDispenserPump::initialize() {
     pinMode(PUMP_PIN, OUTPUT);
-    analogWrite(PUMP_PIN, 0);
+    digitalWrite(PUMP_PIN, LOW);  // 🔥 Cambiar analogWrite por digitalWrite
     pumpReady = true;
     pumpRunning = false;
+    Serial.println("{\"pump_init\":\"SUCCESS\",\"pin\":" + String(PUMP_PIN) + ",\"mode\":\"DIGITAL\"}");
     return true;
 }
 
 void WaterDispenserPump::turnOn(unsigned long duration) {
-    if (!pumpReady || !pumpEnabled) return;
+    if (!pumpReady || !pumpEnabled) {
+        Serial.println("{\"pump_error\":\"CANNOT_START\",\"ready\":" + String(pumpReady) + ",\"enabled\":" + String(pumpEnabled) + "}");
+        return;
+    }
     
     if (duration > MAX_PUMP_TIME) {
         duration = MAX_PUMP_TIME;
@@ -23,20 +27,26 @@ void WaterDispenserPump::turnOn(unsigned long duration) {
     pumpDuration = duration;
     pumpStartTime = millis();
     pumpRunning = true;
-    analogWrite(PUMP_PIN, currentPower);
+    digitalWrite(PUMP_PIN, HIGH);  // 🔥 Cambiar analogWrite por digitalWrite HIGH
+    
+    Serial.println("{\"pump_action\":\"TURNED_ON\",\"pin\":" + String(PUMP_PIN) + 
+                   ",\"duration_ms\":" + String(duration) + ",\"digital_state\":\"HIGH\"}");
 }
 
 void WaterDispenserPump::turnOff() {
-    analogWrite(PUMP_PIN, 0);
+    digitalWrite(PUMP_PIN, LOW);  // 🔥 Cambiar analogWrite por digitalWrite LOW
     pumpRunning = false;
     pumpStartTime = 0;
     pumpDuration = 0;
+    
+    Serial.println("{\"pump_action\":\"TURNED_OFF\",\"pin\":" + String(PUMP_PIN) + ",\"digital_state\":\"LOW\"}");
 }
 
 void WaterDispenserPump::setPower(int power) {
+    // 🔥 Como ahora es digital, solo importa si power > 0
     currentPower = constrain(power, 0, 255);
     if (pumpRunning) {
-        analogWrite(PUMP_PIN, currentPower);
+        digitalWrite(PUMP_PIN, currentPower > 0 ? HIGH : LOW);  // 🔥 Digital: HIGH si power > 0
     }
 }
 
@@ -62,6 +72,7 @@ void WaterDispenserPump::update() {
     if (pumpDuration > 0) {
         unsigned long elapsed = millis() - pumpStartTime;
         if (elapsed >= pumpDuration) {
+            Serial.println("{\"pump_auto\":\"TIMEOUT_REACHED\",\"elapsed_ms\":" + String(elapsed) + "}");
             turnOff();
         }
     }
@@ -75,11 +86,13 @@ String WaterDispenserPump::getStatus() {
 }
 
 void WaterDispenserPump::emergencyStop() {
-    digitalWrite(PUMP_PIN, 0);
+    digitalWrite(PUMP_PIN, LOW);  // 🔥 Cambiar analogWrite por digitalWrite LOW
     pumpRunning = false;
     pumpEnabled = false;
     pumpStartTime = 0;
     pumpDuration = 0;
+    
+    Serial.println("{\"pump_action\":\"EMERGENCY_STOP\",\"pin\":" + String(PUMP_PIN) + "}");
 }
 
 const char* WaterDispenserPump::getActuatorId() {

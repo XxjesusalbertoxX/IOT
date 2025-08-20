@@ -1,3 +1,4 @@
+// SensorManager.h
 #ifndef SENSOR_MANAGER_H
 #define SENSOR_MANAGER_H
 
@@ -15,6 +16,7 @@
 
 class SensorManager {
 private:
+    // 🔥 AHORA SON PUNTEROS EXTERNOS (NO SE CREAN AQUÍ)
     LitterboxUltrasonicSensor* ultrasonicSensor;
     LitterboxDHTSensor* dhtSensor;
     LitterboxMQ2Sensor* mq2Sensor;
@@ -34,7 +36,20 @@ private:
     static const unsigned long UPDATE_INTERVAL = 100;
 
 public:
-    SensorManager();
+    // 🔥 NUEVO CONSTRUCTOR CON INYECCIÓN DE DEPENDENCIAS
+    SensorManager(LitterboxUltrasonicSensor* litterboxUltrasonic,
+                  LitterboxDHTSensor* litterboxDHT,
+                  LitterboxMQ2Sensor* litterboxMQ2,
+                  LitterboxStepperMotor* litterboxMotor,
+                  FeederWeightSensor* feederWeight,
+                  FeederUltrasonicSensor1* feederUltrasonic1,
+                  FeederUltrasonicSensor2* feederUltrasonic2,
+                  FeederStepperMotor* feederMotor,
+                  WaterDispenserSensor* waterSensor,
+                  WaterDispenserPump* waterPump,
+                  WaterDispenserIRSensor* waterIRSensor);
+    
+    // 🔥 CONSTRUCTOR POR DEFECTO ELIMINADO (ya no crea instancias)
     ~SensorManager();
     
     bool begin();
@@ -58,7 +73,7 @@ public:
     bool isWaterDetected();
     bool isCatDrinking();
     WaterDispenserPump* getWaterPump();
-    WaterDispenserSensor* getWaterSensor() { return waterSensor; }  // 🔥 Agregar este método
+    WaterDispenserSensor* getWaterSensor() { return waterSensor; }
     
     // ===== MÉTODOS DE ESTADO =====
     bool isLitterboxUltrasonicReady();
@@ -75,7 +90,7 @@ public:
     // ===== MÉTODOS DE DIAGNÓSTICO =====
     String getSensorStatus();
     String getAllReadings();
-    void printAllSensorReadings(); // ✅ IMPLEMENTADO EN .cpp
+    void printAllSensorReadings();
 };
 
 #endif
