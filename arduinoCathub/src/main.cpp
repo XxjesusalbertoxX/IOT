@@ -2,11 +2,14 @@
 #include "Devices/SensorManager.h"
 #include "protocol/CommandProcessor.h"
 #include "Devices/litterbox/actuators/LitterboxStepperMotor.h"
-#include "Devices/litterbox/actuators/LitterboxStepperMotor.h"
+#include "Devices/feeder/actuators/FeederStepperMotor.h"
+#include "Devices/waterdispenser/actuators/WaterDispenserPump.h"
 
 SensorManager sensorManager;
 LitterboxStepperMotor litterboxMotor;
-CommandProcessor commandProcessor(&sensorManager, &litterboxMotor);
+FeederStepperMotor feederMotor;
+WaterDispenserPump waterPump;
+CommandProcessor commandProcessor(&sensorManager, &litterboxMotor, &feederMotor, &waterPump);
 
 void setup() {
     Serial.begin(115200);
@@ -24,17 +27,11 @@ void setup() {
 }
 
 void loop() {
-    if (Serial.available()) {
-        String cmd = Serial.readStringUntil('\n');
-        cmd.trim();
-        if (cmd == "PING") {
-            Serial.println("PONG");
-        }
-    }
     // ✅ SIEMPRE actualizar sensores para que tengan datos frescos
     sensorManager.poll();
 
-    feederMotor->update();
+    // Actualizar los actuadores que necesiten update
+    feederMotor.update();
     
     // ✅ PROCESAR comandos de la Ras cuando lleguen
     if (Serial.available()) {
@@ -46,11 +43,8 @@ void loop() {
         }
     }
     
-    // ✅ Actualizar actuadores
+    // ✅ Actualizar lógica automatizada
     commandProcessor.update();
-
-    
-    // ❌ YA NO enviamos datos automáticamente cada 3 segundos
     
     delay(10); // Pequeña pausa para no saturar
 }

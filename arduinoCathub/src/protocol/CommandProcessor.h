@@ -20,7 +20,7 @@ private:
     int targetWeight;             // Peso objetivo en gramos para rellenar
     bool manualFeederControl;     // Control manual del comedero (botón presionado)
     unsigned long lastFeederRetry;// Último intento de rellenar automático
-    int litterboxState;           // 1=ready, 2.1=cleaning_normal, 2.2=cleaning_deep
+    int litterboxState;           // 1=inactivo, 2=activo, 2.1=cleaning_normal, 2.2=cleaning_deep
     
     // ===== MÉTODOS PRINCIPALES =====
     void processDeviceIDCommand(String command);
@@ -30,6 +30,7 @@ private:
     void setLitterboxReady();
     void startNormalCleaning();
     void startDeepCleaning();
+    void setLitterboxCleaningInterval(int minutes); // Nuevo método para intervalo
     
     // ===== COMANDOS FDR1 (COMEDERO) =====
     void sendFeederStatus();
@@ -42,7 +43,7 @@ private:
     
     // ===== VALIDACIONES DE SEGURIDAD =====
     bool isCatPresent();
-    bool isLitterboxSafeToClean();
+    bool isLitterboxSafeToOperate();  // Nueva validación específica
     bool isFeederSafeToOperate();
     bool hasSufficientFood();
 

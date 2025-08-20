@@ -66,7 +66,7 @@ void CommandProcessor::processCommand(String command) {
 }
 
 void CommandProcessor::processDeviceIDCommand(String command) {
-    int colonIndex = command.indexOf(':');
+int colonIndex = command.indexOf(':');
     if (colonIndex == -1) return;
     
     String deviceID = command.substring(0, colonIndex);
@@ -77,7 +77,7 @@ void CommandProcessor::processDeviceIDCommand(String command) {
         if (action == "all") {
             sendLitterboxStatus();
         }
-        else if (action == "1") {
+        else if (action == "2") {
             setLitterboxReady();
         }
         else if (action == "2.1") {
@@ -86,8 +86,17 @@ void CommandProcessor::processDeviceIDCommand(String command) {
         else if (action == "2.2") {
             startDeepCleaning();
         }
+        else if (action.startsWith("LTMTR_001:")) {
+            String intervalStr = action.substring(10); // Extrae después de "LTMTR_001:"
+            int minutes = intervalStr.toInt();
+            if (minutes > 0) {
+                setLitterboxCleaningInterval(minutes);
+            } else {
+                Serial.println("{\"device_id\":\"LTR1\",\"error\":\"INVALID_INTERVAL\",\"received\":\"" + intervalStr + "\"}");
+            }
+        }
         else {
-            Serial.println("{\"device_id\":\"LTR1\",\"error\":\"INVALID_ACTION\",\"action\":\"" + action + "\",\"valid\":[\"all\",\"1\",\"2.1\",\"2.2\"]}");
+            Serial.println("{\"device_id\":\"LTR1\",\"error\":\"INVALID_ACTION\",\"action\":\"" + action + "\",\"valid\":[\"all\",\"2\",\"2.1\",\"2.2\",\"LTMTR_001:{minutes}\"]}");
         }
     }
     // ===== DEVICE ID DESCONOCIDO =====
@@ -98,18 +107,23 @@ void CommandProcessor::processDeviceIDCommand(String command) {
 
 // ===== IMPLEMENTACIÓN ARENERO (LTR1) =====
 void CommandProcessor::sendLitterboxStatus() {
+    int currentState = litterboxMotor->getState();
+    
     String response = "{";
     response += "\"device_id\":\"LTR1\",";
     response += "\"type\":\"litterbox\",";
-    response += "\"state\":" + String(litterboxState) + ",";
+    response += "\"state\":" + String(currentState) + ",";
     response += "\"status\":{";
     response += "\"cat_present\":" + String(isCatPresent() ? "true" : "false") + ",";
-    response += "\"safe_to_clean\":" + String(isLitterboxSafeToClean() ? "true" : "false") + ",";
+    response += "\"safe_to_operate\":" + String(isLitterboxSafeToOperate() ? "true" : "false") + ",";
     response += "\"distance_cm\":" + String(sensorManager->getLitterboxDistance()) + ",";
     response += "\"temperature_c\":" + String(sensorManager->getLitterboxTemperature()) + ",";
     response += "\"humidity_percent\":" + String(sensorManager->getLitterboxHumidity()) + ",";
     response += "\"gas_ppm\":" + String(sensorManager->getLitterboxGasPPM()) + ",";
-    response += "\"motor_ready\":" + String(litterboxMotor->isReady() ? "true" : "false");
+    response += "\"torque_active\":" + String(litterboxMotor->isTorqueActive() ? "true" : "false") + ",";
+    response += "\"motor_position\":" + String(litterboxMotor->getCurrentPosition()) + ",";
+    response += "\"cleaning_interval_min\":" + String(litterboxMotor->getCleaningInterval()) + ",";
+    response += "\"last_cleaned_ms\":" + String(litterboxMotor->getLastCleaningTime());
     response += "},";
     response += "\"timestamp\":" + String(millis());
     response += "}";
@@ -117,40 +131,84 @@ void CommandProcessor::sendLitterboxStatus() {
 }
 
 void CommandProcessor::setLitterboxReady() {
-    if (isCatPresent()) {
-        Serial.println("{\"device_id\":\"LTR1\",\"action\":\"set_ready\",\"success\":false,\"reason\":\"CAT_PRESENT\"}");
+    // Solo se puede activar desde estado 1
+    if (litterboxMotor->getState() != 1) {
+        Serial.println("{\"device_id\":\"LTR1\",\"action\":\"set_ready\",\"success\":false,\"reason\":\"INVALID_STATE_TRANSITION\"}");
         return;
     }
     
-    litterboxState = 1; // Estado READY
-    litterboxMotor->setState(1);
-    Serial.println("{\"device_id\":\"LTR1\",\"action\":\"set_ready\",\"success\":true,\"state\":1}");
+    // Verificar condiciones de seguridad
+    if (!isLitterboxSafeToOperate()) {
+        Serial.println("{\"device_id\":\"LTR1\",\"action\":\"set_ready\",\"success\":false,\"reason\":\"UNSAFE_CONDITIONS\"}");
+        return;
+    }
+    
+    bool success = litterboxMotor->setReady();
+    litterboxState = 2; // Actualizar variable de estado global
+    
+    Serial.println("{\"device_id\":\"LTR1\",\"action\":\"set_ready\",\"success\":" + 
+                   String(success ? "true" : "false") + ",\"state\":2}");
 }
 
 void CommandProcessor::startNormalCleaning() {
-    if (!isLitterboxSafeToClean()) {
-        Serial.println("{\"device_id\":\"LTR1\",\"action\":\"normal_clean\",\"success\":false,\"reason\":\"NOT_SAFE\"}");
+    // Solo se puede ejecutar desde estado 2 (ACTIVE)
+    if (litterboxMotor->getState() != 2) {
+        Serial.println("{\"device_id\":\"LTR1\",\"action\":\"normal_clean\",\"success\":false,\"reason\":\"NOT_IN_READY_STATE\"}");
         return;
     }
     
-    litterboxState = 21; // Estado 2.1
-    bool started = litterboxMotor->executeNormalCleaning();
+    // Verificar condiciones de seguridad
+    if (!isLitterboxSafeToOperate()) {
+        Serial.println("{\"device_id\":\"LTR1\",\"action\":\"normal_clean\",\"success\":false,\"reason\":\"UNSAFE_CONDITIONS\"}");
+        return;
+    }
+    
+    bool success = litterboxMotor->executeNormalCleaning();
     
     Serial.println("{\"device_id\":\"LTR1\",\"action\":\"normal_clean\",\"success\":" + 
-                   String(started ? "true" : "false") + ",\"state\":\"2.1\"}");
+                   String(success ? "true" : "false") + ",\"state\":\"2.1\"}");
 }
 
 void CommandProcessor::startDeepCleaning() {
-    if (!isLitterboxSafeToClean()) {
-        Serial.println("{\"device_id\":\"LTR1\",\"action\":\"deep_clean\",\"success\":false,\"reason\":\"NOT_SAFE\"}");
+    // Solo se puede ejecutar desde estado 2 (ACTIVE)
+    if (litterboxMotor->getState() != 2) {
+        Serial.println("{\"device_id\":\"LTR1\",\"action\":\"deep_clean\",\"success\":false,\"reason\":\"NOT_IN_READY_STATE\"}");
         return;
     }
     
-    litterboxState = 22; // Estado 2.2
-    bool started = litterboxMotor->executeDeepCleaning();
+    // Verificar condiciones de seguridad
+    if (!isLitterboxSafeToOperate()) {
+        Serial.println("{\"device_id\":\"LTR1\",\"action\":\"deep_clean\",\"success\":false,\"reason\":\"UNSAFE_CONDITIONS\"}");
+        return;
+    }
+    
+    bool success = litterboxMotor->executeDeepCleaning();
+    if (success) {
+        litterboxState = 1; // Actualizar variable de estado global
+    }
     
     Serial.println("{\"device_id\":\"LTR1\",\"action\":\"deep_clean\",\"success\":" + 
-                   String(started ? "true" : "false") + ",\"state\":\"2.2\"}");
+                   String(success ? "true" : "false") + ",\"new_state\":1}");
+}
+
+void CommandProcessor::setLitterboxCleaningInterval(int minutes) {
+    if (minutes < 1) minutes = 1;
+    if (minutes > 1440) minutes = 1440; // Máximo 24 horas
+    
+    litterboxMotor->setCleaningInterval(minutes);
+    
+    Serial.println("{\"device_id\":\"LTR1\",\"action\":\"set_cleaning_interval\",\"success\":true,\"minutes\":" + String(minutes) + "}");
+}
+// ===== VALIDACIÓN ESPECÍFICA PARA EL ARENERO =====
+bool CommandProcessor::isLitterboxSafeToOperate() {
+    // 1. Verificar si hay gato dentro
+    if (isCatPresent()) return false;
+    
+    // 2. Verificar nivel de gas (>800 PPM = peligroso)
+    float gasPPM = sensorManager->getLitterboxGasPPM();
+    if (gasPPM > 800.0) return false;
+    
+    return true;
 }
 
 // ===== IMPLEMENTACIÓN COMEDERO (FDR1) =====
@@ -417,9 +475,18 @@ void CommandProcessor::update() {
         }
         
         // ===== MONITOREO DEL ARENERO =====
-        if (litterboxState == 1 && isCatPresent()) {
-            litterboxMotor->setState(-1); // BLOCKED
-            Serial.println("{\"safety_alert\":\"LITTERBOX_BLOCKED_CAT_PRESENT\"}");
+        // 1. Verificar limpieza programada (solo si está en estado ACTIVE)
+        if (litterboxMotor->getState() == 2 && litterboxMotor->shouldPerformCleaning() && isLitterboxSafeToOperate()) {
+            Serial.println("{\"auto_action\":\"LITTERBOX_SCHEDULED_CLEANING\",\"reason\":\"INTERVAL_REACHED\"}");
+            startNormalCleaning();
+        }
+        
+        // 2. Bloquear si se detecta gato o niveles peligrosos
+        if (litterboxMotor->getState() > 0 && !isLitterboxSafeToOperate()) {
+            litterboxMotor->setBlocked();
+            litterboxState = -1;
+            Serial.println("{\"safety_alert\":\"LITTERBOX_BLOCKED\",\"reason\":\"" + 
+                           String(isCatPresent() ? "CAT_PRESENT" : "HIGH_GAS_LEVEL") + "\"}");
         }
         
         lastUpdate = now;

@@ -1,145 +1,127 @@
 #include "LitterboxStepperMotor.h"
 
-const int LitterboxStepperMotor::DIR_PIN = 15;
-const int LitterboxStepperMotor::EN_PIN = 16;
-const int LitterboxStepperMotor::PULL_PIN = 17;
-const unsigned long LitterboxStepperMotor::STEP_DELAY_US = 1000;
-const int LitterboxStepperMotor::STEPS_PER_REVOLUTION = 200;
-
 LitterboxStepperMotor::LitterboxStepperMotor(const char* id, const char* devId) :
-    actuatorId(id), deviceId(devId), motorEnabled(false), motorReady(false), torqueActive(false),
-    currentPosition(0), direction(true), currentState(EMPTY),
-    homePosition(0), readyPosition(0) {}
+    actuatorId(id), deviceId(devId), motorEnabled(false), motorReady(false),
+    currentPosition(0), direction(true), currentState(INACTIVE),
+    cleaningIntervalMinutes(60), lastCleaningTime(0) {}
 
 bool LitterboxStepperMotor::initialize() {
     pinMode(DIR_PIN, OUTPUT);
     pinMode(EN_PIN, OUTPUT);
     pinMode(PULL_PIN, OUTPUT);
 
-    // Iniciar todo desactivado
-    digitalWrite(EN_PIN, HIGH);  // Motor desactivado
+    // Iniciar en estado desactivado (Estado 1)
+    digitalWrite(EN_PIN, HIGH);  // Motor sin fuerza (HIGH = disabled)
     digitalWrite(DIR_PIN, HIGH);
     digitalWrite(PULL_PIN, LOW);
 
-    // Configurar posiciones
-    homePosition = 0;                    // Posición inicial
-    readyPosition = degreesToSteps(-40); // 40 grados a la derecha
-
-    // Empezar en estado EMPTY
-    currentState = EMPTY;
+    // Establecer estado inicial
+    currentState = INACTIVE;
     currentPosition = 0;
     motorReady = true;
+    motorEnabled = false;
+    lastCleaningTime = millis(); // Iniciar el contador de limpieza
 
-    Serial.println("{\"device\":\"LITTERBOX\",\"motor\":\"INITIALIZED\",\"state\":0}");
+    Serial.println("{\"device\":\"LITTERBOX\",\"motor\":\"INITIALIZED\",\"state\":" + String(static_cast<int>(currentState)) + "}");
     return true;
 }
 
-// ===== COMANDO PRINCIPAL: CAMBIAR ESTADO =====
-bool LitterboxStepperMotor::setState(int newState) {
-    LitterboxState targetState = static_cast<LitterboxState>(newState);
-    
-    Serial.println("{\"device\":\"LITTERBOX\",\"action\":\"CHANGING_STATE\",\"from\":" + 
-                  String(static_cast<int>(currentState)) + ",\"to\":" + String(newState) + "}");
-
-    switch (targetState) {
-        case EMPTY:
-            // Estado SIN ARENA: Ir a home y desactivar motor
-            if (moveToPosition(homePosition)) {
-                if (disableTorque()) {
-                    currentState = EMPTY;
-                    Serial.println("{\"device\":\"LITTERBOX\",\"state\":\"EMPTY\",\"position\":\"HOME\",\"motor\":\"DISABLED\"}");
-                    return true;
-                }
-            }
-            break;
-
-        case READY:
-            // Estado LISTO: Moverse a posición ready y activar motor
-            if (moveToPosition(readyPosition)) {
-                if (enableTorque()) {
-                    currentState = READY;
-                    Serial.println("{\"device\":\"LITTERBOX\",\"state\":\"READY\",\"position\":\"READY\",\"motor\":\"ENABLED\"}");
-                    return true;
-                }
-            }
-            break;
-
-        case BLOCKED:
-            // Estado BLOQUEADO: Desactivar motor inmediatamente
-            disableTorque();
-            currentState = BLOCKED;
-            Serial.println("{\"device\":\"LITTERBOX\",\"state\":\"BLOCKED\",\"motor\":\"DISABLED\"}");
-            return true;
-
-        default:
-            Serial.println("{\"device\":\"LITTERBOX\",\"error\":\"INVALID_STATE\",\"requested\":" + String(newState) + "}");
-            return false;
-    }
-
-    Serial.println("{\"device\":\"LITTERBOX\",\"error\":\"STATE_CHANGE_FAILED\"}");
-    return false;
-}
-
-// ===== LIMPIEZA NORMAL (CADA X MINUTOS) =====
-bool LitterboxStepperMotor::executeNormalCleaning() {
-    if (currentState != READY) {
-        Serial.println("{\"device\":\"LITTERBOX\",\"error\":\"NOT_READY_FOR_NORMAL_CLEANING\",\"current_state\":" + String(static_cast<int>(currentState)) + "}");
+// ===== COMANDO: PONER ARENERO EN MODO LISTO (ESTADO 2) =====
+bool LitterboxStepperMotor::setReady() {
+    if (currentState == BLOCKED) {
+        Serial.println("{\"device\":\"LITTERBOX\",\"error\":\"BLOCKED_CANNOT_SET_READY\"}");
         return false;
     }
 
-    Serial.println("{\"device\":\"LITTERBOX\",\"action\":\"NORMAL_CLEANING_START\"}");
+    if (currentState == ACTIVE) {
+        Serial.println("{\"device\":\"LITTERBOX\",\"state\":\"ALREADY_READY\"}");
+        return true; // Ya está listo
+    }
+
+    Serial.println("{\"device\":\"LITTERBOX\",\"action\":\"ACTIVATING_MOTOR\"}");
+    
+    // 1. Activar torque para permitir movimiento
+    if (enableTorque()) {
+        // 2. Girar 30 pasos a la izquierda
+        if (rotateSteps(-30)) {
+            currentState = ACTIVE;
+            Serial.println("{\"device\":\"LITTERBOX\",\"state\":\"READY\",\"state_code\":2}");
+            return true;
+        }
+    }
+    
+    Serial.println("{\"device\":\"LITTERBOX\",\"error\":\"ACTIVATION_FAILED\"}");
+    return false;
+}
+
+// ===== LIMPIEZA NORMAL (ESTADO 2.1) =====
+bool LitterboxStepperMotor::executeNormalCleaning() {
+    if (currentState != ACTIVE) {
+        Serial.println("{\"device\":\"LITTERBOX\",\"error\":\"NOT_READY_FOR_CLEANING\",\"current_state\":" + String(static_cast<int>(currentState)) + "}");
+        return false;
+    }
+
+    Serial.println("{\"device\":\"LITTERBOX\",\"action\":\"NORMAL_CLEANING_START\",\"state_code\":\"2.1\"}");
     
     // Recordar posición inicial
     int startPosition = currentPosition;
     
-    // Girar 270 grados a la izquierda
-    if (rotateLeft(270)) {
-        delay(1000); // Pausa para que termine el movimiento
-        
-        // Regresar a la posición inicial
-        if (moveToPosition(startPosition)) {
-            Serial.println("{\"device\":\"LITTERBOX\",\"action\":\"NORMAL_CLEANING_COMPLETE\"}");
-            return true;
-        }
-    }
+    // Girar 270 grados a la derecha
+    setDirection(true); // Derecha
+    step(degreesToSteps(270));
+    delay(1000); // Pausa para que termine el movimiento
     
-    Serial.println("{\"device\":\"LITTERBOX\",\"error\":\"NORMAL_CLEANING_FAILED\"}");
-    return false;
+    // Regresar a la posición inicial
+    setDirection(false); // Izquierda
+    step(degreesToSteps(270));
+    
+    // Actualizar tiempo de última limpieza
+    updateLastCleaningTime();
+    
+    Serial.println("{\"device\":\"LITTERBOX\",\"action\":\"NORMAL_CLEANING_COMPLETE\",\"returning_to_state\":2}");
+    return true;
 }
 
-// ===== LIMPIEZA COMPLETA (MANUAL) =====
-bool LitterboxStepperMotor::executeCompleteCleaning() {
-    if (currentState != READY) {
-        Serial.println("{\"device\":\"LITTERBOX\",\"error\":\"NOT_READY_FOR_COMPLETE_CLEANING\",\"current_state\":" + String(static_cast<int>(currentState)) + "}");
+// ===== LIMPIEZA COMPLETA (ESTADO 2.2) =====
+bool LitterboxStepperMotor::executeDeepCleaning() {
+    if (currentState != ACTIVE) {
+        Serial.println("{\"device\":\"LITTERBOX\",\"error\":\"NOT_READY_FOR_DEEP_CLEANING\",\"current_state\":" + String(static_cast<int>(currentState)) + "}");
         return false;
     }
 
-    Serial.println("{\"device\":\"LITTERBOX\",\"action\":\"COMPLETE_CLEANING_START\"}");
+    Serial.println("{\"device\":\"LITTERBOX\",\"action\":\"DEEP_CLEANING_START\",\"state_code\":\"2.2\"}");
     
-    // Girar 50 grados a la izquierda
-    if (rotateLeft(50)) {
-        delay(1000); // Pausa para que termine el movimiento
-        
-        // Ir a HOME y desactivar (cambiar a estado EMPTY)
-        if (moveToPosition(homePosition)) {
-            if (disableTorque()) {
-                currentState = EMPTY;
-                Serial.println("{\"device\":\"LITTERBOX\",\"action\":\"COMPLETE_CLEANING_FINISHED\",\"state\":0}");
-                return true;
-            }
-        }
-    }
+    // Girar 40 grados a la izquierda
+    setDirection(false); // Izquierda
+    step(degreesToSteps(40));
+    delay(1000); // Pausa
     
-    Serial.println("{\"device\":\"LITTERBOX\",\"error\":\"COMPLETE_CLEANING_FAILED\"}");
-    return false;
+    // Regresar a posición anterior
+    setDirection(true); // Derecha
+    step(degreesToSteps(40));
+    delay(500);
+    
+    // Desactivar motor y pasar a estado 1
+    disableTorque();
+    currentState = INACTIVE;
+    
+    updateLastCleaningTime();
+    
+    Serial.println("{\"device\":\"LITTERBOX\",\"action\":\"DEEP_CLEANING_COMPLETE\",\"new_state\":1}");
+    return true;
 }
 
-// ===== MÉTODOS PRIVADOS DE CONTROL =====
+// ===== CONFIGURAR INTERVALO DE LIMPIEZA =====
+void LitterboxStepperMotor::setCleaningInterval(int minutes) {
+    cleaningIntervalMinutes = minutes;
+    Serial.println("{\"device\":\"LITTERBOX\",\"config\":\"CLEANING_INTERVAL\",\"minutes\":" + String(minutes) + "}");
+}
+
+// ===== CONTROL DEL TORQUE =====
 bool LitterboxStepperMotor::enableTorque() {
     if (!motorReady) return false;
     digitalWrite(EN_PIN, LOW);  // Activar motor (LOW = enabled)
     motorEnabled = true;
-    torqueActive = true;
     Serial.println("{\"device\":\"LITTERBOX\",\"torque\":\"ENABLED\"}");
     return true;
 }
@@ -147,36 +129,11 @@ bool LitterboxStepperMotor::enableTorque() {
 bool LitterboxStepperMotor::disableTorque() {
     digitalWrite(EN_PIN, HIGH); // Desactivar motor (HIGH = disabled)
     motorEnabled = false;
-    torqueActive = false;
     Serial.println("{\"device\":\"LITTERBOX\",\"torque\":\"DISABLED\"}");
     return true;
 }
 
-bool LitterboxStepperMotor::moveToPosition(int targetPosition) {
-    if (!motorEnabled && !enableTorque()) return false;
-    
-    int deltaSteps = targetPosition - currentPosition;
-    if (deltaSteps == 0) return true;
-    
-    setDirection(deltaSteps > 0);
-    step(abs(deltaSteps));
-    return true;
-}
-
-bool LitterboxStepperMotor::rotateRight(int degrees) {
-    int steps = degreesToSteps(degrees);
-    setDirection(true);  // Clockwise
-    step(steps);
-    return true;
-}
-
-bool LitterboxStepperMotor::rotateLeft(int degrees) {
-    int steps = degreesToSteps(degrees);
-    setDirection(false); // Counter-clockwise
-    step(steps);
-    return true;
-}
-
+// ===== CONTROL DE DIRECCIÓN Y PASOS =====
 void LitterboxStepperMotor::setDirection(bool clockwise) {
     direction = clockwise;
     digitalWrite(DIR_PIN, clockwise ? HIGH : LOW);
@@ -186,7 +143,7 @@ void LitterboxStepperMotor::setDirection(bool clockwise) {
 void LitterboxStepperMotor::step(int steps) {
     if (!motorReady) return;
     
-    for (int i = 0; i < steps; ++i) {
+    for (int i = 0; i < abs(steps); ++i) {
         digitalWrite(PULL_PIN, HIGH);
         delayMicroseconds(STEP_DELAY_US / 2);
         digitalWrite(PULL_PIN, LOW);
@@ -195,6 +152,12 @@ void LitterboxStepperMotor::step(int steps) {
         // Actualizar posición actual
         currentPosition += (direction ? 1 : -1);
     }
+}
+
+bool LitterboxStepperMotor::rotateSteps(int steps) {
+    setDirection(steps > 0);
+    step(abs(steps));
+    return true;
 }
 
 int LitterboxStepperMotor::degreesToSteps(int degrees) {
@@ -211,15 +174,60 @@ bool LitterboxStepperMotor::isBlocked() const {
 }
 
 bool LitterboxStepperMotor::isReady() const {
-    return currentState == READY;
+    return motorReady;
 }
 
-bool LitterboxStepperMotor::isEmpty() const {
-    return currentState == EMPTY;
+bool LitterboxStepperMotor::setBlocked() {
+    if (motorEnabled) {
+        disableTorque();
+    }
+    currentState = BLOCKED;
+    return true;
+}
+
+void LitterboxStepperMotor::setState(int state) {
+    switch (state) {
+        case -1:
+            disableTorque();
+            currentState = BLOCKED;
+            break;
+        case 1:
+            disableTorque();
+            currentState = INACTIVE;
+            break;
+        case 2:
+            if (enableTorque()) {
+                rotateSteps(-30); // Girar 30 pasos a la izquierda
+                currentState = ACTIVE;
+            }
+            break;
+    }
+}
+
+int LitterboxStepperMotor::getCleaningInterval() const {
+    return cleaningIntervalMinutes;
+}
+
+unsigned long LitterboxStepperMotor::getLastCleaningTime() const {
+    return lastCleaningTime;
+}
+
+void LitterboxStepperMotor::updateLastCleaningTime() {
+    lastCleaningTime = millis();
+}
+
+bool LitterboxStepperMotor::shouldPerformCleaning() {
+    if (currentState != ACTIVE) return false;
+    
+    unsigned long now = millis();
+    unsigned long interval = cleaningIntervalMinutes * 60 * 1000; // Minutos a milisegundos
+    
+    // Verificar si ha pasado el intervalo desde la última limpieza
+    return (now - lastCleaningTime) >= interval;
 }
 
 bool LitterboxStepperMotor::isTorqueActive() const {
-    return torqueActive;
+    return motorEnabled;
 }
 
 int LitterboxStepperMotor::getCurrentPosition() const {
@@ -228,24 +236,23 @@ int LitterboxStepperMotor::getCurrentPosition() const {
 
 String LitterboxStepperMotor::getStateString() const {
     switch (currentState) {
-        case EMPTY:   return "EMPTY";
-        case READY:   return "READY";
-        case BLOCKED: return "BLOCKED";
-        default:      return "UNKNOWN";
+        case INACTIVE: return "INACTIVE";
+        case ACTIVE:   return "ACTIVE";
+        case BLOCKED:  return "BLOCKED";
+        default:       return "UNKNOWN";
     }
 }
 
 String LitterboxStepperMotor::getStatus() {
     return "{\"state\":" + String(static_cast<int>(currentState)) +
            ",\"position\":" + String(currentPosition) +
-           ",\"torque\":" + String(torqueActive) +
-           ",\"enabled\":" + String(motorEnabled) + "}";
+           ",\"torque\":" + String(motorEnabled) +
+           ",\"cleaning_interval_min\":" + String(cleaningIntervalMinutes) + "}";
 }
 
 void LitterboxStepperMotor::emergencyStop() {
     digitalWrite(EN_PIN, HIGH);
     motorEnabled = false;
-    torqueActive = false;
     currentState = BLOCKED;
     Serial.println("{\"device\":\"LITTERBOX\",\"emergency\":\"STOPPED\"}");
 }
