@@ -58,6 +58,7 @@ public:
     String getWaterLevel();
     bool isWaterDetected();
     bool isCatDrinking();
+    WaterDispenserSensor* getWaterSensor() { return waterSensor; }
     WaterDispenserPump* getWaterPump();
     
     // ===== MÉTODOS DE ESTADO =====

@@ -19,8 +19,6 @@ private:
     bool feederEnabled;           // Estado de activación del comedero
     int targetWeight;             // Peso objetivo en gramos para rellenar
     bool manualFeederControl;     // Control manual del comedero (botón presionado)
-    bool waterDispenserEnabled;   // 🔥 Agregar esta variable
-    unsigned long lastWaterCheck;
     unsigned long lastFeederRetry;// Último intento de rellenar automático
     int litterboxState;           // 1=inactivo, 2=activo, 2.1=cleaning_normal, 2.2=cleaning_deep
     
