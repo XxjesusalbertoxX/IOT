@@ -9,7 +9,7 @@
 class LitterboxDHTSensor {
 private:
     static const int DATA_PIN = 21;        // Pin digital para el sensor DHT
-    static const int DHT_TYPE = DHT22;    // Tipo de sensor (DHT22 para RQ-S003)
+    static const int DHT_TYPE = DHT22;     // Tipo de sensor (DHT22)
     static const unsigned long READ_INTERVAL = 2000; // DHT necesita al menos 2 segundos entre lecturas
 
     const char* sensorId;
@@ -20,9 +20,10 @@ private:
     float lastHumidity;
     unsigned long lastReadTime;
     bool sensorReady;
-    
+
 public:
-    LitterboxDHTSensor(const char* id = SENSOR_ID_LITTER_DHT, const char* deviceId = DEVICE_ID_LITTERBOX);
+    LitterboxDHTSensor(const char* id = SENSOR_ID_LITTER_DHT,
+                       const char* deviceId = DEVICE_ID_LITTERBOX);
     bool initialize();
     void update();
     float getTemperature();
