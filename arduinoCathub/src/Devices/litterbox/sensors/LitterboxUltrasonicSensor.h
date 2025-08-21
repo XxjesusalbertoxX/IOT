@@ -20,8 +20,8 @@ private:
     bool sensorReady;
 
     // Umbrales
-    static constexpr float DETECTION_THRESHOLD_CM = 15.0f; // presencia general
-    static constexpr float BLOCK_THRESHOLD_CM     = 10.0f; // bloqueo (gato dentro)
+    static constexpr float DETECTION_THRESHOLD_CM = 10.0f; // presencia general
+    static constexpr float BLOCK_THRESHOLD_CM     = 3.0f; // bloqueo (gato dentro)
 
 public:
     LitterboxUltrasonicSensor(const char* id = SENSOR_ID_LITTER_ULTRA,

@@ -89,10 +89,10 @@ void CommandProcessor::setLitterboxReady() {
         Serial.println("{\"device_id\":\"LTR1\",\"action\":\"SET_READY\",\"success\":false,\"reason\":\"NO_SENSOR_MANAGER\"}");
         return;
     }
-    // if (!isLitterboxSafeToOperate()) {
-    //     Serial.println("{\"device_id\":\"LTR1\",\"action\":\"SET_READY\",\"success\":false,\"reason\":\"NOT_SAFE\"}");
-    //     return;
-    // }
+    if (!isLitterboxSafeToOperate()) {
+        Serial.println("{\"device_id\":\"LTR1\",\"action\":\"SET_READY\",\"success\":false,\"reason\":\"NOT_SAFE\"}");
+        return;
+    }
     if (!litterboxMotor) {
         Serial.println("{\"device_id\":\"LTR1\",\"action\":\"SET_READY\",\"success\":false,\"reason\":\"NO_MOTOR\"}");
         return;
@@ -110,10 +110,10 @@ void CommandProcessor::startNormalCleaning() {
         Serial.println("{\"device_id\":\"LTR1\",\"action\":\"CLEAN_NORMAL\",\"success\":false,\"reason\":\"NO_MOTOR\"}");
         return;
     }
-    // if (!isLitterboxSafeToClean()) {
-    //     Serial.println("{\"device_id\":\"LTR1\",\"action\":\"CLEAN_NORMAL\",\"success\":false,\"reason\":\"NOT_SAFE\"}");
-    //     return;
-    // }
+    if (!isLitterboxSafeToClean()) {
+        Serial.println("{\"device_id\":\"LTR1\",\"action\":\"CLEAN_NORMAL\",\"success\":false,\"reason\":\"NOT_SAFE\"}");
+        return;
+    }
 
     // temporal
     litterboxState = 21;
@@ -127,10 +127,10 @@ void CommandProcessor::startDeepCleaning() {
         Serial.println("{\"device_id\":\"LTR1\",\"action\":\"CLEAN_DEEP\",\"success\":false,\"reason\":\"NO_MOTOR\"}");
         return;
     }
-    // if (!isLitterboxSafeToClean()) {
-    //     Serial.println("{\"device_id\":\"LTR1\",\"action\":\"CLEAN_DEEP\",\"success\":false,\"reason\":\"NOT_SAFE\"}");
-    //     return;
-    // }
+    if (!isLitterboxSafeToClean()) {
+        Serial.println("{\"device_id\":\"LTR1\",\"action\":\"CLEAN_DEEP\",\"success\":false,\"reason\":\"NOT_SAFE\"}");
+        return;
+    }
 
     litterboxState = 22;
     bool ok = litterboxMotor->executeDeepCleaning();
@@ -151,7 +151,6 @@ void CommandProcessor::sendFeederStatus() {
     response += "\"motor_ready\":" + String((feederMotor ? feederMotor->isReady() : false) ? "true" : "false") + ",";
     response += "\"safe_to_operate\":" + String(isFeederSafeToOperate() ? "true" : "false");
     response += "}";
-    Serial.println(response);
 }
 
 void CommandProcessor::controlFeederMotor(bool on) {
@@ -207,16 +206,16 @@ bool CommandProcessor::isCatPresent() {
 
 bool CommandProcessor::isLitterboxSafeToClean() {
     if (!sensorManager) return false;
-    float ppm = sensorManager->getLitterboxGasPPM();
-    bool gasOk = (ppm >= 0.0f && ppm < 100.0f); // ajusta umbral
-    return !isCatPresent() && gasOk;
+    //float ppm = sensorManager->getLitterboxGasPPM();
+    // bool gasOk = (ppm >= 0.0f && ppm < 100.0f); // ajusta umbral
+    return !isCatPresent(); // && gasOk
 }
 
 bool CommandProcessor::isLitterboxSafeToOperate() {
     if (!sensorManager) return false;
-    float ppm = sensorManager->getLitterboxGasPPM();
-    bool gasOk = (ppm >= 0.0f && ppm < 150.0f); // ajusta umbral
-    return !isCatPresent() && gasOk;
+    // float ppm = sensorManager->getLitterboxGasPPM();
+    // bool gasOk = (ppm >= 0.0f && ppm < 150.0f); // ajusta umbral
+    return !isCatPresent(); //&& gasOk;
 }
 
 bool CommandProcessor::isFeederSafeToOperate() {

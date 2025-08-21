@@ -24,13 +24,13 @@ private:
     static const int EN_PIN  = 16;
     static const int PULL_PIN = 17;
 
-    static const unsigned long STEP_DELAY_US = 2000UL; // ajusta velocidad
-    static const int STEPS_PER_REVOLUTION = 200;       // ajustar si usas microstepping
+    static const unsigned long STEP_DELAY_US = 4000UL; // 1ms = velocidad moderada
+    static const int STEPS_PER_REVOLUTION = 1600;      // 200 * 8 = 1600 pasos/vuelta (con microstepping 1/8)
 
-    // PARÁMETROS A CALIBRAR
-    static const int READY_STEPS = 50;        // pasos al ponerse READY (izquierda)
-    static const int NORMAL_CLEAN_STEPS = 150; // pasos para limpieza normal (derecha)
-    static const int DEEP_CLEAN_STEPS = 50;    // pasos para limpieza completa (izquierda)
+    // PARÁMETROS CALIBRADOS PARA NEMA 21 + TB6600
+    static const int READY_STEPS = 480; // 40° izquierda (40° ÷ 0.225° = 178 pasos)
+    static const int NORMAL_CLEAN_STEPS = 1200; // 270° derecha (270° ÷ 0.225° = 1200 pasos)
+    static const int DEEP_CLEAN_STEPS = 450; // pasos para limpieza completa (izquierda)
     // -------------------------------------
 
     bool enableTorque();
