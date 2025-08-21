@@ -15,31 +15,27 @@ private:
     WaterDispenserPump*      waterPump;
     bool                     initialized;
 
-    // ===== ESTADOS DE DISPOSITIVOS =====
-    bool manualFeederControl;     // Control manual del comedero (botón presionado)
-    int  litterboxState;
+    bool manualFeederControl;
+    int  litterboxState; // 1 = INACTIVE, 2 = ACTIVE
 
-    // ===== MÉTODOS PRINCIPALES =====
     void processDeviceIDCommand(String command);
 
-    // ===== COMANDOS LTR1 (ARENERO) =====
+    // LTR1
     void sendLitterboxStatus();
     void setLitterboxReady();
     void startNormalCleaning();
     void startDeepCleaning();
-    void setLitterboxCleaningInterval(int minutes);
 
-    // ===== COMANDOS FDR1 (COMEDERO) =====
+    // feeder / water (sin cambios)
     void sendFeederStatus();
     void controlFeederMotor(bool on);
 
-    // ===== COMANDO ALL =====
     void sendAllDevicesStatus();
 
-    // ===== VALIDACIONES DE SEGURIDAD =====
+    // seguridad
     bool isCatPresent();
-    bool isLitterboxSafeToOperate();
     bool isLitterboxSafeToClean();
+    bool isLitterboxSafeToOperate();
     bool isFeederSafeToOperate();
     bool hasSufficientFood();
 
@@ -51,7 +47,6 @@ public:
     void processCommand(String command);
     void update();
 
-    // ===== GETTERS - SOLO LOS NECESARIOS =====
     int getLitterboxState() const { return litterboxState; }
 };
 

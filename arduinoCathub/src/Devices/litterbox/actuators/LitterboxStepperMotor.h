@@ -8,7 +8,6 @@
 class LitterboxStepperMotor {
 public:
     enum LitterboxState {
-        BLOCKED = -1,
         INACTIVE = 1,
         ACTIVE = 2
     };
@@ -16,66 +15,50 @@ public:
 private:
     const char* actuatorId;
     const char* deviceId;
-    bool motorEnabled;
+    bool motorEnabled;     // true = EN low (holding)
     bool motorReady;
-    int currentPosition;
-    bool direction;
+    long currentPosition;  // contador de pasos (puede ser negativo)
     LitterboxState currentState;
-    int cleaningIntervalMinutes;
-    unsigned long lastCleaningTime;
 
     static const int DIR_PIN = 15;
     static const int EN_PIN  = 16;
     static const int PULL_PIN = 17;
 
-    // Tiempo entre pulsos en microsegundos. Aumentar para movimientos más lentos y fiables.
-    static const unsigned long STEP_DELAY_US = 5000UL; // 5 ms por pulso (ajustable)
+    static const unsigned long STEP_DELAY_US = 2000UL; // ajusta velocidad
+    static const int STEPS_PER_REVOLUTION = 200;       // ajustar si usas microstepping
 
-    static const int STEPS_PER_REVOLUTION = 200;
-
-    // Grados que debe mover cuando se marca READY (LTR1:2)
-    static const int READY_DEGREES = 70;
-
-    // Profundidad de limpieza completa por defecto (en grados)
-    static const int DEEP_CLEAN_DEGREES = 45; // ajustar si hace falta
+    // PARÁMETROS A CALIBRAR
+    static const int READY_STEPS = 50;        // pasos al ponerse READY (izquierda)
+    static const int NORMAL_CLEAN_STEPS = 150; // pasos para limpieza normal (derecha)
+    static const int DEEP_CLEAN_STEPS = 50;    // pasos para limpieza completa (izquierda)
+    // -------------------------------------
 
     bool enableTorque();
     bool disableTorque();
     void setDirection(bool clockwise);
-    void step(int steps);
-    bool rotateSteps(int steps);
-    int degreesToSteps(int degrees);
+    void stepSigned(int signedSteps); // acepta + (RIGHT) o - (LEFT)
 
 public:
     LitterboxStepperMotor(const char* id = ACTUATOR_LITTERBOX_MOTOR_ID_1,
-                          const char* devId = DEVICE_ID_LITTERBOX);
+                         const char* devId = DEVICE_ID_LITTERBOX);
     bool initialize();
 
-    bool setReady();                    // PREPARAR: mover READY_DEGREES a la izquierda y mantener torque
-    bool executeNormalCleaning();
-    bool executeDeepCleaning();
-    void setCleaningInterval(int minutes);
+    // Operaciones (basadas en estados)
+    bool setReady();               // LTR1:2
+    bool executeNormalCleaning();  // LTR1:2.1
+    bool executeDeepCleaning();    // LTR1:2.2
 
+    // Getters
     int getState() const;
-    bool isBlocked() const;
     bool isReady() const;
-    bool setBlocked();
-    void setState(int state);
-    int getCleaningInterval() const;
-    unsigned long getLastCleaningTime() const;
-    void updateLastCleaningTime();
-    bool shouldPerformCleaning();
-
     bool isTorqueActive() const;
-    int getCurrentPosition() const;
+    long getCurrentPosition() const;
     String getStateString() const;
-    const char* getActuatorId();
-    const char* getDeviceId();
-    String getStatus();
-    void emergencyStop();
+    String getStatus() const;
 
-    // API helper para girar en grados (con signo)
-    bool rotateDegreesSigned(int degreesSigned);
+    // Emergencia / control externo
+    void emergencyStop();          // desactiva torque y pone INACTIVE
+    void forceDisableTorque();     // sólo desactiva torque (NO cambia la posición en hardware)
 };
 
 #endif // LITTERBOX_STEPPER_MOTOR_H
