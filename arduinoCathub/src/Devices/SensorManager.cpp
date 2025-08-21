@@ -90,6 +90,15 @@ bool SensorManager::begin() {
     return initialized;
 }
 
+float SensorManager::getFeederWeight() {
+    if (weightSensor && weightSensor->isReady()) return weightSensor->getCurrentWeight(); // ✅ CAMBIAR getWeight() por getCurrentWeight()
+    return 0.0;
+}
+
+WaterDispenserSensor* SensorManager::getWaterSensor() {
+    return waterSensor;
+}
+
 void SensorManager::poll() {
     unsigned long now = millis();
     if (now - lastUpdateTime >= UPDATE_INTERVAL) {
@@ -132,11 +141,6 @@ LitterboxStepperMotor* SensorManager::getLitterboxMotor() {
 }
 
 // ===== MÉTODOS DEL COMEDERO =====
-float SensorManager::getFeederWeight() {
-    if (weightSensor && weightSensor->isReady()) return weightSensor->getCurrentWeight();
-    return -1.0;
-}
-
 float SensorManager::getFeederCatDistance() {
     if (feederUltrasonic1 && feederUltrasonic1->isReady()) return feederUltrasonic1->getDistance();
     return -1.0;
@@ -147,9 +151,36 @@ float SensorManager::getFeederFoodDistance() {
     return -1.0;
 }
 
-FeederStepperMotor* SensorManager::getFeederMotor() {
-    return feederMotor;
+String SensorManager::getStorageFoodStatus() {
+    if (feederUltrasonic2 && feederUltrasonic2->isReady()) {
+        float d = feederUltrasonic2->getDistance();
+        if (d <= 0) return "UNKNOWN";
+        // Depósito: 2cm = full, 13cm = empty
+        if (d <= 2.0) return "FULL";
+        if (d >= 13.0) return "EMPTY";
+        // parcial -> calcular porcentaje aproximado (100% en 2cm, 0% en 13cm)
+        float pct = (13.0 - d) / (13.0 - 2.0) * 100.0; // 0..100
+        int ipct = (int) round(pct);
+        // Si está cerca del 50% informar HALF
+        if (ipct >= 45 && ipct <= 55) return "HALF";
+        // devolver parcial con porcentaje
+        return "PARTIAL_" + String(ipct) + "%";
+    }
+    return "NOT_READY";
 }
+
+String SensorManager::getPlateFoodStatus() {
+    if (feederUltrasonic1 && feederUltrasonic1->isReady()) {
+        float d = feederUltrasonic1->getDistance();
+        if (d <= 0) return "UNKNOWN";
+        // Platito: <=2cm full, >=8cm empty
+        if (d <= 2.0) return "FULL";
+        if (d >= 8.0) return "EMPTY";
+        return "PARTIAL";
+    }
+    return "NOT_READY";
+}
+
 
 // ===== MÉTODOS DEL BEBEDERO =====
 String SensorManager::getWaterLevel() {

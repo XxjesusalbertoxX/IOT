@@ -16,39 +16,37 @@
 
 class SensorManager {
 private:
-    // 🔥 AHORA SON PUNTEROS EXTERNOS (NO SE CREAN AQUÍ)
-    LitterboxUltrasonicSensor* ultrasonicSensor;
-    LitterboxDHTSensor* dhtSensor;
-    LitterboxMQ2Sensor* mq2Sensor;
+    // Objetos de sensores (NO los posee, solo los referencia)
+    LitterboxUltrasonicSensor* ultrasonicSensor;  // ✅ ADD THIS
+    LitterboxDHTSensor* dhtSensor;               // ✅ ADD THIS  
+    LitterboxMQ2Sensor* mq2Sensor;              // ✅ ADD THIS
     LitterboxStepperMotor* litterboxMotor;
-    
-    FeederWeightSensor* weightSensor;
+    FeederWeightSensor* weightSensor;            // ✅ ADD THIS
     FeederUltrasonicSensor1* feederUltrasonic1;
     FeederUltrasonicSensor2* feederUltrasonic2;
     FeederStepperMotor* feederMotor;
-    
     WaterDispenserSensor* waterSensor;
     WaterDispenserPump* waterPump;
     WaterDispenserIRSensor* waterIRSensor;
     
     bool initialized;
     unsigned long lastUpdateTime;
-    static const unsigned long UPDATE_INTERVAL = 50;
+    static const unsigned long UPDATE_INTERVAL = 500; // ✅ ADD THIS
+
 public:
-    // 🔥 NUEVO CONSTRUCTOR CON INYECCIÓN DE DEPENDENCIAS
     SensorManager(LitterboxUltrasonicSensor* litterboxUltrasonic,
                   LitterboxDHTSensor* litterboxDHT,
                   LitterboxMQ2Sensor* litterboxMQ2,
-                  LitterboxStepperMotor* litterboxMotor,
+                  LitterboxStepperMotor* litterboxMotorPtr,
                   FeederWeightSensor* feederWeight,
-                  FeederUltrasonicSensor1* feederUltrasonic1,
-                  FeederUltrasonicSensor2* feederUltrasonic2,
-                  FeederStepperMotor* feederMotor,
-                  WaterDispenserSensor* waterSensor,
-                  WaterDispenserPump* waterPump,
-                  WaterDispenserIRSensor* waterIRSensor);
+                  FeederUltrasonicSensor1* feederUltrasonic1Ptr,
+                  FeederUltrasonicSensor2* feederUltrasonic2Ptr,
+                  FeederStepperMotor* feederMotorPtr,
+                  WaterDispenserSensor* waterSensorPtr,
+                  WaterDispenserPump* waterPumpPtr,
+                  WaterDispenserIRSensor* waterIRSensorPtr);
     
-    // 🔥 CONSTRUCTOR POR DEFECTO ELIMINADO (ya no crea instancias)
+    // 🔥 AGREGAR DECLARACIÓN DEL DESTRUCTOR:
     ~SensorManager();
     
     bool begin();
@@ -66,15 +64,17 @@ public:
     float getFeederCatDistance();
     float getFeederFoodDistance();
     FeederStepperMotor* getFeederMotor();
-
+    String getStorageFoodStatus();
+    String getPlateFoodStatus();
+    
     // ===== MÉTODOS DEL BEBEDERO =====
     String getWaterLevel();
     bool isWaterDetected();
     bool isCatDrinking();
     WaterDispenserPump* getWaterPump();
-    WaterDispenserSensor* getWaterSensor() { return waterSensor; }
+    WaterDispenserSensor* getWaterSensor();
     
-    // ===== MÉTODOS DE ESTADO =====
+    // ===== ESTADO DE SENSORES =====
     bool isLitterboxUltrasonicReady();
     bool isLitterboxDHTReady();
     bool isLitterboxMQ2Ready();
@@ -85,8 +85,6 @@ public:
     bool isWaterLevelReady();
     bool isWaterIRReady();
     bool areAllSensorsReady();
-    
-    // ===== MÉTODOS DE DIAGNÓSTICO =====
     String getSensorStatus();
     String getAllReadings();
     void printAllSensorReadings();

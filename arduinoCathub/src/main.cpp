@@ -58,6 +58,9 @@ void loop() {
     
     // Actualizar sistema automático
     commandProcessor.update();
+
+    // Actualizar motor del comedero (genera los pasos cuando está en modo continuous)
+    feederMotor.update();
     
     // Actualizar bomba de agua directamente
     waterPump.update();

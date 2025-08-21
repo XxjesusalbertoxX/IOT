@@ -17,16 +17,8 @@ private:
     bool initialized;
     
     // ===== ESTADOS DE DISPOSITIVOS =====
-    bool feederEnabled;           // Estado de activación del comedero
-    int targetWeight;             // Peso objetivo en gramos para rellenar
     bool manualFeederControl;     // Control manual del comedero (botón presionado)
-    unsigned long lastFeederRetry;// Último intento de rellenar automático
-    int litterboxState;           // 1=inactivo, 2=activo, 2.1=cleaning_normal, 2.2=cleaning_deep
-
-        bool feederRefillInProgress;          // 🔥 Estado del proceso de rellenado
-    unsigned long feederRefillStartTime;  // 🔥 Tiempo de inicio del rellenado
-    float feederRefillStartWeight;        // 🔥 Peso inicial antes del rellenado
-    static const unsigned long FEEDER_REFILL_MAX_MS = 5000;  // 🔥 Máximo 5 segundos de rellenado
+    int litterboxState;
     
     // ===== MÉTODOS PRINCIPALES =====
     void processDeviceIDCommand(String command);
@@ -36,21 +28,19 @@ private:
     void setLitterboxReady();
     void startNormalCleaning();
     void startDeepCleaning();
-    void setLitterboxCleaningInterval(int minutes); // Nuevo método para intervalo
+    void setLitterboxCleaningInterval(int minutes);
     
     // ===== COMANDOS FDR1 (COMEDERO) =====
     void sendFeederStatus();
-    void setTargetWeight(int grams);
     void controlFeederMotor(bool on);
-    void attemptFeederRefill();
     
     // ===== COMANDO ALL =====
     void sendAllDevicesStatus();
     
     // ===== VALIDACIONES DE SEGURIDAD =====
     bool isCatPresent();
-    bool isLitterboxSafeToOperate();  // Nueva validación específica
-    bool isLitterboxSafeToClean();    // Validación específica para limpieza
+    bool isLitterboxSafeToOperate();
+    bool isLitterboxSafeToClean();
     bool isFeederSafeToOperate();
     bool hasSufficientFood();
 
@@ -61,10 +51,12 @@ public:
     void processCommand(String command);
     void update();
     
-    // ===== GETTERS =====
-    bool isFeederEnabled() const { return feederEnabled; }
-    int getTargetWeight() const { return targetWeight; }
+    // ===== GETTERS - SOLO LOS NECESARIOS =====
     int getLitterboxState() const { return litterboxState; }
+    
+    // 🔥 ELIMINAR ESTOS GETTERS QUE CAUSAN ERROR:
+    // bool isFeederEnabled() const { return feederEnabled; }  ❌ ELIMINAR
+    // int getTargetWeight() const { return targetWeight; }    ❌ ELIMINAR
 };
 
 #endif
