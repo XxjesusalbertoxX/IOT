@@ -126,7 +126,7 @@ float SensorManager::getLitterboxHumidity() {
 }
 
 float SensorManager::getLitterboxGasPPM() {
-    if (mq2Sensor && mq2Sensor->isReady()) return mq2Sensor->getPPM();
+    if (mq2Sensor && mq2Sensor->isReady()) return mq2Sensor->getAnalog();
     return -1.0f;
 }
 
@@ -232,23 +232,44 @@ String SensorManager::getSensorStatus() {
 }
 
 String SensorManager::getAllReadings() {
+    auto fmt = [](float v, const char* fmtNum = "%.2f") -> String {
+        if (isnan(v)) return String("null");
+        // valores sentinel negativos que usabas -> convertir a null
+        if (v <= -900.0f) return String("null");
+        if (v == -1.0f) return String("null");
+        // formato con 2 decimales
+        return String(v, 2);
+    };
+
     String readings = "{\"readings\":{";
     readings += "\"litterbox\":{";
-    readings += "\"distance\":" + String(getLitterboxDistance()) + ",";
-    readings += "\"temperature\":" + String(getLitterboxTemperature()) + ",";
-    readings += "\"humidity\":" + String(getLitterboxHumidity()) + ",";
-    readings += "\"gas_ppm\":" + String(getLitterboxGasPPM());
+    // distance puede ser -1 si no listo
+    float d = getLitterboxDistance();
+    readings += "\"distance\":" + (d <= 0.0f ? String("null") : String(d,2)) + ",";
+
+    float t = getLitterboxTemperature();
+    readings += "\"temperature\":" + fmt(t) + ",";
+
+    float h = getLitterboxHumidity();
+    readings += "\"humidity\":" + fmt(h) + ",";
+
+    float g = getLitterboxGasPPM();
+    readings += "\"gas_ppm\":" + (g < 0.0f ? String("null") : String(g,2));
+
     readings += "},";
     readings += "\"feeder\":{";
-    readings += "\"weight\":" + String(getFeederWeight()) + ",";
-    readings += "\"cat_distance\":" + String(getFeederCatDistance()) + ",";
-    readings += "\"food_distance\":" + String(getFeederFoodDistance());
+    readings += "\"weight\":" + String(getFeederWeight(),2) + ",";
+    float cd = getFeederCatDistance();
+    readings += "\"cat_distance\":" + (cd < 0.0f ? String("null") : String(cd,2)) + ",";
+    float fd = getFeederFoodDistance();
+    readings += "\"food_distance\":" + (fd < 0.0f ? String("null") : String(fd,2));
     readings += "},";
     readings += "\"waterdispenser\":{";
     readings += "\"water_level\":\"" + getWaterLevel() + "\",";
-    readings += "\"cat_drinking\":" + String(isCatDrinking());
-    readings += "}";
-    readings += ",\"timestamp\":" + String(millis()) + "}}";
+    readings += "\"cat_drinking\":" + String(isCatDrinking() ? "true" : "false");
+    readings += "},";
+    readings += "\"timestamp\":" + String(millis());
+    readings += "}}";
     return readings;
 }
 

@@ -15,12 +15,12 @@ CommandProcessor::CommandProcessor(SensorManager* sensors, LitterboxStepperMotor
 
 bool CommandProcessor::initialize() {
     if (!sensorManager || !litterboxMotor || !feederMotor || !waterPump) {
-        Serial.println("{\"command_processor\":\"INITIALIZE_FAILED\",\"reason\":\"NULL_DEPENDENCY\"}");
+        // Serial.println("{\"command_processor\":\"INITIALIZE_FAILED\",\"reason\":\"NULL_DEPENDENCY\"}");
         return false;
     }
 
     initialized = true;
-    Serial.println("{\"command_processor\":\"INITIALIZED\"}");
+    // Serial.println("{\"command_processor\":\"INITIALIZED\"}");
     return true;
 }
 

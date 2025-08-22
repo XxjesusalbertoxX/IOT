@@ -8,7 +8,7 @@ LitterboxMQ2Sensor::LitterboxMQ2Sensor(const char* id, const char* deviceId,
     sensorId(id),
     deviceId(deviceId),
     lastValue(0.0f),
-    lastPPM(0.0f),
+    lastPPM(-1.0f),
     lastRs(0.0f),
     Ro(0.0f),
     lastReadTime(0),
@@ -19,30 +19,26 @@ LitterboxMQ2Sensor::LitterboxMQ2Sensor(const char* id, const char* deviceId,
 }
 
 bool LitterboxMQ2Sensor::initialize(bool autoCalibrate, int calSamples, unsigned long calDelayMs) {
-    // Lectura inicial para establecer valores por defecto
     int v = analogRead(ANALOG_PIN);
     lastValue = (float)v;
     float voltage = lastValue * (vcc / 1023.0f);
 
-    // Rs = RL * (Vcc - Vout) / Vout  [kOhm]
     if (voltage > 0.001f) {
         lastRs = (rLoad * (vcc - voltage) / voltage);
     } else {
-        lastRs = rLoad; // fallback
+        lastRs = rLoad;
     }
 
     lastReadTime = millis();
     sensorReady = true;
+    lastPPM = -1.0f; // no calibrado aún
 
-    Serial.println("{\"mq2\":\"INITIALIZED\",\"analog\":" + String((int)lastValue) + ",\"rs\":" + String(lastRs) + "}");
+    // Serial.println("{\"mq2\":\"INITIALIZED\",\"analog\":" + String((int)lastValue) + ",\"rs\":" + String(lastRs,3) + "}");
 
-    // Opcional: calibrar Ro en aire limpio si se solicita.
     if (autoCalibrate) {
-        Serial.println("{\"mq2\":\"CALIBRATING_Ro\",\"samples\":" + String(calSamples) + "}");
         calibrateRo(calSamples, calDelayMs);
-        Serial.println("{\"mq2\":\"CALIBRATION_COMPLETE\",\"Ro\":" + String(Ro) + "}");
+        // Serial.println("{\"mq2\":\"CALIBRATION_COMPLETE\",\"Ro\":" + String(Ro,3) + "}");
     }
-
     return sensorReady;
 }
 
@@ -51,7 +47,6 @@ void LitterboxMQ2Sensor::update() {
     unsigned long now = millis();
     if (now - lastReadTime < READ_INTERVAL) return;
 
-    // Hacer varias lecturas rápidas para reducir ruido y tomar promedio
     const int SAMPLES = 5;
     long sum = 0;
     for (int i = 0; i < SAMPLES; ++i) {
@@ -63,20 +58,21 @@ void LitterboxMQ2Sensor::update() {
     // EMA smoothing
     lastValue = (emaAlpha * avg) + ((1.0f - emaAlpha) * lastValue);
 
-    // Calcular Rs en kOhm
     float voltage = lastValue * (vcc / 1023.0f);
     if (voltage > 0.001f) {
         lastRs = (rLoad * (vcc - voltage) / voltage);
+    } else {
+        lastRs = rLoad;
     }
 
-    // Calcular PPM aproximado (requiere Ro)
     if (Ro > 0.0f) {
         float ratio = lastRs / Ro;
-        lastPPM = analogToPPM_internal(ratio); // aproximado
+        lastPPM = analogToPPM_internal(ratio);
     } else {
-        lastPPM = -1.0f; // indicar sin calibración
+        lastPPM = -1.0f; // no calibrado
     }
 
+    // Serial.println("{\"mq2\":\"READ\",\"analog\":" + String((int)round(lastValue)) + ",\"rs\":" + String(lastRs,3) + ",\"ppm\":" + String(lastPPM,2) + "}");
     lastReadTime = now;
 }
 
@@ -103,7 +99,6 @@ const char* LitterboxMQ2Sensor::getSensorId() { return sensorId; }
 const char* LitterboxMQ2Sensor::getDeviceId() { return deviceId; }
 
 void LitterboxMQ2Sensor::calibrateRo(int samples, unsigned long delayMs) {
-    // Calibrar Ro en aire limpio. Debes ejecutar esto en ambiente sin gas.
     double sumRs = 0.0;
     for (int i = 0; i < samples; ++i) {
         int v = analogRead(ANALOG_PIN);
@@ -113,27 +108,22 @@ void LitterboxMQ2Sensor::calibrateRo(int samples, unsigned long delayMs) {
         delay(delayMs);
     }
     float avgRs = (float)(sumRs / samples);
-    // Usamos CLEAN_AIR_FACTOR como aproximación; recalibrar en tu entorno
     Ro = avgRs / CLEAN_AIR_FACTOR;
-    // Serial.println("{\"mq2\":\"Ro_calibrated\",\"avgRs\":" + String(avgRs) + ",\"Ro\":" + String(Ro) + "}");
+    // Serial.println("{\"mq2\":\"Ro_calibrated\",\"avgRs\":" + String(avgRs,3) + ",\"Ro\":" + String(Ro,3) + "}");
 }
 
 float LitterboxMQ2Sensor::getRo() const { return Ro; }
 float LitterboxMQ2Sensor::getRs() const { return lastRs; }
-
 float LitterboxMQ2Sensor::getRatioRSRo() const {
     if (Ro <= 0.0f) return -1.0f;
     return lastRs / Ro;
 }
-
 bool LitterboxMQ2Sensor::isGasHigh(float ppmThreshold) {
-    if (lastPPM < 0) return false; // no calibrado
+    if (lastPPM < 0) return false;
     return lastPPM >= ppmThreshold;
 }
-
 float LitterboxMQ2Sensor::analogToPPM_internal(float ratio_rs_ro) {
     if (ratio_rs_ro <= 0.0f) return -1.0f;
-    // Fórmula empírica aproximada
     const float C = 20.0f;
     const float EXP = -2.2f;
     float ppm = C * pow(ratio_rs_ro, EXP);

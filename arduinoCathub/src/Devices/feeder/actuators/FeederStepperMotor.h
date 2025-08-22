@@ -11,9 +11,9 @@ private:
     static const int EN_PIN = 14;    // Enable (activo LOW)
     static const int PULL_PIN = 12;  // Pulsos (Step)
 
-    static const unsigned long STEP_DELAY_US = 5000; // 10ms entre pulsos (valor base)
+    static const unsigned long STEP_DELAY_US = 1000; // 10ms entre pulsos (valor base)
     static const int STEPS_PER_REVOLUTION = 200;     // Pasos por vuelta completa
-    
+
     const char* actuatorId;
     const char* deviceId;
     bool motorEnabled;
