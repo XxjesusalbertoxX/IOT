@@ -89,6 +89,7 @@ public:
     String getSensorStatus();
     String getAllReadings();
     void printAllSensorReadings();
+    
 };
 
 #endif // SENSOR_MANAGER_H

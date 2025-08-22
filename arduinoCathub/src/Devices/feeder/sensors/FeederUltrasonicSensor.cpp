@@ -36,7 +36,7 @@ FeederUltrasonicSensor1::FeederUltrasonicSensor1(const char* id, const char* dev
     : sensorId(id), deviceId(deviceId), lastDistance(-1.0), lastReadTime(0), sensorReady(false) {}
 
 bool FeederUltrasonicSensor1::initialize() {
-    Serial.println("{\"sensor\":\"FeederUltrasonic1\",\"action\":\"INITIALIZING\",\"trig_pin\":" + String(TRIG_PIN) + ",\"echo_pin\":" + String(ECHO_PIN) + "}");
+    // Serial.println("{\"sensor\":\"FeederUltrasonic1\",\"action\":\"INITIALIZING\",\"trig_pin\":" + String(TRIG_PIN) + ",\"echo_pin\":" + String(ECHO_PIN) + "}");
     pinMode(TRIG_PIN, OUTPUT);
     pinMode(ECHO_PIN, INPUT);
     digitalWrite(TRIG_PIN, LOW);
@@ -47,7 +47,7 @@ bool FeederUltrasonicSensor1::initialize() {
     long duration = 0;
     for (int i = 0; i < ATTEMPTS; ++i) {
         duration = sendPulseAndMeasure(TRIG_PIN, ECHO_PIN, TIMEOUT_US);
-        Serial.println("{\"sensor\":\"FeederUltrasonic1\",\"action\":\"INIT_TRY\",\"attempt\":" + String(i) + ",\"duration\":" + String(duration) + "}");
+        // Serial.println("{\"sensor\":\"FeederUltrasonic1\",\"action\":\"INIT_TRY\",\"attempt\":" + String(i) + ",\"duration\":" + String(duration) + "}");
         if (duration > 0) break;
         delay(30);
     }
@@ -56,17 +56,17 @@ bool FeederUltrasonicSensor1::initialize() {
     sensorReady = true;
     if (duration > 0) {
         lastDistance = durationToCm(duration);
-        Serial.println("{\"sensor\":\"FeederUltrasonic1\",\"action\":\"INIT_SUCCESS\",\"distance\":" + String(lastDistance) + "}");
+        // Serial.println("{\"sensor\":\"FeederUltrasonic1\",\"action\":\"INIT_SUCCESS\",\"distance\":" + String(lastDistance) + "}");
     } else {
         lastDistance = -1.0;
-        Serial.println("{\"sensor\":\"FeederUltrasonic1\",\"action\":\"INIT_WARNING\",\"reason\":\"NO_ECHO_YET\",\"note\":\"will attempt readings at runtime\"}");
+        // Serial.println("{\"sensor\":\"FeederUltrasonic1\",\"action\":\"INIT_WARNING\",\"reason\":\"NO_ECHO_YET\",\"note\":\"will attempt readings at runtime\"}");
     }
     return true;
 }
 
 void FeederUltrasonicSensor1::update() {
     if (!sensorReady) {
-        Serial.println("{\"sensor\":\"FeederUltrasonic1\",\"action\":\"UPDATE_SKIPPED\",\"reason\":\"NOT_READY\"}");
+        // Serial.println("{\"sensor\":\"FeederUltrasonic1\",\"action\":\"UPDATE_SKIPPED\",\"reason\":\"NOT_READY\"}");
         return;
     }
     unsigned long now = millis();
@@ -80,7 +80,7 @@ void FeederUltrasonicSensor1::update() {
     long d3 = sendPulseAndMeasure(TRIG_PIN, ECHO_PIN, TIMEOUT_US);
 
     float cm = medianOf3(durationToCm(d1), durationToCm(d2), durationToCm(d3));
-    Serial.println("{\"sensor\":\"FeederUltrasonic1\",\"action\":\"PULSE_RESULTS\",\"d1\":" + String(d1) + ",\"d2\":" + String(d2) + ",\"d3\":" + String(d3) + ",\"cm_med\":" + String(cm) + "}");
+    // Serial.println("{\"sensor\":\"FeederUltrasonic1\",\"action\":\"PULSE_RESULTS\",\"d1\":" + String(d1) + ",\"d2\":" + String(d2) + ",\"d3\":" + String(d3) + ",\"cm_med\":" + String(cm) + "}");
 
     if (cm >= 0) {
         lastDistance = cm;
@@ -105,7 +105,7 @@ FeederUltrasonicSensor2::FeederUltrasonicSensor2(const char* id, const char* dev
     : sensorId(id), deviceId(deviceId), lastDistance(-1.0), lastReadTime(0), sensorReady(false) {}
 
 bool FeederUltrasonicSensor2::initialize() {
-    Serial.println("{\"sensor\":\"FeederUltrasonic2\",\"action\":\"INITIALIZING\",\"trig_pin\":" + String(TRIG_PIN) + ",\"echo_pin\":" + String(ECHO_PIN) + "}");
+    // Serial.println("{\"sensor\":\"FeederUltrasonic2\",\"action\":\"INITIALIZING\",\"trig_pin\":" + String(TRIG_PIN) + ",\"echo_pin\":" + String(ECHO_PIN) + "}");
     pinMode(TRIG_PIN, OUTPUT);
     pinMode(ECHO_PIN, INPUT);
     digitalWrite(TRIG_PIN, LOW);
@@ -115,7 +115,7 @@ bool FeederUltrasonicSensor2::initialize() {
     long duration = 0;
     for (int i = 0; i < ATTEMPTS; ++i) {
         duration = sendPulseAndMeasure(TRIG_PIN, ECHO_PIN, TIMEOUT_US);
-        Serial.println("{\"sensor\":\"FeederUltrasonic2\",\"action\":\"INIT_TRY\",\"attempt\":" + String(i) + ",\"duration\":" + String(duration) + "}");
+        // Serial.println("{\"sensor\":\"FeederUltrasonic2\",\"action\":\"INIT_TRY\",\"attempt\":" + String(i) + ",\"duration\":" + String(duration) + "}");
         if (duration > 0) break;
         delay(30);
     }
@@ -123,10 +123,10 @@ bool FeederUltrasonicSensor2::initialize() {
     sensorReady = true;
     if (duration > 0) {
         lastDistance = durationToCm(duration);
-        Serial.println("{\"sensor\":\"FeederUltrasonic2\",\"action\":\"INIT_SUCCESS\",\"distance\":" + String(lastDistance) + "}");
+        // Serial.println("{\"sensor\":\"FeederUltrasonic2\",\"action\":\"INIT_SUCCESS\",\"distance\":" + String(lastDistance) + "}");
     } else {
         lastDistance = -1.0;
-        Serial.println("{\"sensor\":\"FeederUltrasonic2\",\"action\":\"INIT_WARNING\",\"reason\":\"NO_ECHO_YET\",\"note\":\"will attempt readings at runtime\"}");
+        // Serial.println("{\"sensor\":\"FeederUltrasonic2\",\"action\":\"INIT_WARNING\",\"reason\":\"NO_ECHO_YET\",\"note\":\"will attempt readings at runtime\"}");
     }
     return true;
 }
@@ -143,7 +143,7 @@ void FeederUltrasonicSensor2::update() {
     long d3 = sendPulseAndMeasure(TRIG_PIN, ECHO_PIN, TIMEOUT_US);
 
     float cm = medianOf3(durationToCm(d1), durationToCm(d2), durationToCm(d3));
-    Serial.println("{\"sensor\":\"FeederUltrasonic2\",\"action\":\"PULSE_RESULTS\",\"d1\":" + String(d1) + ",\"d2\":" + String(d2) + ",\"d3\":" + String(d3) + ",\"cm_med\":" + String(cm) + "}");
+    // Serial.println("{\"sensor\":\"FeederUltrasonic2\",\"action\":\"PULSE_RESULTS\",\"d1\":" + String(d1) + ",\"d2\":" + String(d2) + ",\"d3\":" + String(d3) + ",\"cm_med\":" + String(cm) + "}");
 
     if (cm >= 0) lastDistance = cm;
     lastReadTime = now;

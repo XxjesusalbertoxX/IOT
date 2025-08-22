@@ -42,6 +42,8 @@ bool WaterDispenserSensor::isWaterDetected() {
 }
 
 String WaterDispenserSensor::getWaterLevel() {
+    // Serial.print("Water Level: ");
+    // Serial.println(lastAnalogValue);
     if (lastAnalogValue < DRY_THRESHOLD) {
         return "DRY";           // Sin agua - BOMBA ON
     } else if (lastAnalogValue < WET_THRESHOLD) {

@@ -26,12 +26,12 @@ bool LitterboxUltrasonicSensor::initialize() {
         sensorReady = true;
         lastDistance = (duration * 0.034) / 2.0;
         lastReadTime = millis();
-        Serial.println("{\"ultrasonic\":\"INITIALIZED\",\"distance_cm\":" + String(lastDistance) + "}");
+        // Serial.println("{\"ultrasonic\":\"INITIALIZED\",\"distance_cm\":" + String(lastDistance) + "}");
         return true;
     }
 
     sensorReady = false;
-    Serial.println("{\"ultrasonic\":\"INITIALIZE_FAILED\"}");
+    // Serial.println("{\"ultrasonic\":\"INITIALIZE_FAILED\"}");
     return false;
 }
 

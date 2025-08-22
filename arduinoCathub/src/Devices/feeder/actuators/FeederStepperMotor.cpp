@@ -73,7 +73,7 @@ void FeederStepperMotor::feedPortion(int portions) {
     setDirection(true); // Siempre hacia adelante para alimentar
     rotate(totalDegrees);
     
-    Serial.println("{\"device\":\"FEEDER\",\"action\":\"FEED\",\"portions\":" + String(portions) + ",\"degrees\":" + String(totalDegrees) + "}");
+    // Serial.println("{\"device\":\"FEEDER\",\"action\":\"FEED\",\"portions\":" + String(portions) + ",\"degrees\":" + String(totalDegrees) + "}");
 }
 
 void FeederStepperMotor::startContinuous() {
@@ -136,14 +136,14 @@ const char* FeederStepperMotor::getDeviceId() {
 void FeederStepperMotor::controlFromSerial(int command) {
     if (command == 1) {
         // Advertencia por serial: uso recomendado -> tryStart(storage, plate)
-        Serial.println("{\"feeder_motor\":\"REQUEST_START_RECEIVED\",\"note\":\"use tryStart(storage,plate) to validate sensors\"}");
+        // Serial.println("{\"feeder_motor\":\"REQUEST_START_RECEIVED\",\"note\":\"use tryStart(storage,plate) to validate sensors\"}");
         // Si quieres compatibilidad para arrancar sin sensores:
         // enable(); setDirection(false); setSpeed(120); startContinuous();
     } 
     else if (command == 0) {
         stopContinuous();
         disable();
-        Serial.println("{\"feeder_motor\":\"STOPPED_BY_SERIAL\"}");
+        // Serial.println("{\"feeder_motor\":\"STOPPED_BY_SERIAL\"}");
     }
 }
 
@@ -165,19 +165,19 @@ bool FeederStepperMotor::canStart(float foodStorageDistance, float plateFoodDist
 // Devuelve true si el motor efectivamente arrancó.
 bool FeederStepperMotor::tryStart(float foodStorageDistance, float plateFoodDistance) {
     if (!motorReady) {
-        Serial.println("{\"feeder_motor\":\"START_BLOCKED\",\"reason\":\"MOTOR_NOT_READY\"}");
+        // Serial.println("{\"feeder_motor\":\"START_BLOCKED\",\"reason\":\"MOTOR_NOT_READY\"}");
         return false;
     }
     if (!canStart(foodStorageDistance, plateFoodDistance)) {
-        Serial.println("{\"feeder_motor\":\"START_BLOCKED\",\"reason\":\"SENSOR_CHECK_FAILED\",\"storage\":" + String(foodStorageDistance) + ",\"plate\":" + String(plateFoodDistance) + "}");
+        // Serial.println("{\"feeder_motor\":\"START_BLOCKED\",\"reason\":\"SENSOR_CHECK_FAILED\",\"storage\":" + String(foodStorageDistance) + ",\"plate\":" + String(plateFoodDistance) + "}");
         return false;
     }
     // Inicio seguro
     setDirection(false);  // dirección de dispensado (izquierda en tu diseño)
-    setSpeed(120);
+    setSpeed(200);
     enable();
     startContinuous();
-    Serial.println("{\"feeder_motor\":\"STARTED\",\"direction\":\"LEFT\",\"speed\":120}");
+    // Serial.println("{\"feeder_motor\":\"STARTED\",\"direction\":\"LEFT\",\"speed\":120}");
     return true;
 }
 
@@ -188,7 +188,7 @@ bool FeederStepperMotor::monitorAndStop(float foodStorageDistance, float plateFo
     if (!canStart(foodStorageDistance, plateFoodDistance)) {
         stopContinuous();
         disable();
-        Serial.println("{\"feeder_motor\":\"AUTO_STOP\",\"reason\":\"SENSOR_STATE_CHANGED\",\"storage\":" + String(foodStorageDistance) + ",\"plate\":" + String(plateFoodDistance) + "}");
+        // Serial.println("{\"feeder_motor\":\"AUTO_STOP\",\"reason\":\"SENSOR_STATE_CHANGED\",\"storage\":" + String(foodStorageDistance) + ",\"plate\":" + String(plateFoodDistance) + "}");
         return true;
     }
     return false;
@@ -197,5 +197,5 @@ bool FeederStepperMotor::monitorAndStop(float foodStorageDistance, float plateFo
 void FeederStepperMotor::emergencyStop() {
     stopContinuous();
     disable();
-    Serial.println("{\"feeder_motor\":\"EMERGENCY_STOP\"}");
+    // Serial.println("{\"feeder_motor\":\"EMERGENCY_STOP\"}");
 }

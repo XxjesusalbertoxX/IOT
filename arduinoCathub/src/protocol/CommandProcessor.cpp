@@ -30,6 +30,7 @@ void CommandProcessor::processCommand(String command) {
 
     if (command == "PING") { Serial.println("{\"response\":\"PONG\"}"); return; }
     if (command == "ALL")    { sendAllDevicesStatus(); return; }
+    if (command == "C")    { sendPlainTextSensors(); return; }
 
     if (command == "FDR1:1" || command == "FDR1:0") {
         bool active = (command.charAt(5) == '1');
@@ -82,6 +83,50 @@ void CommandProcessor::sendLitterboxStatus() {
     response += "\"safe_to_operate\":" + String(isLitterboxSafeToOperate() ? "true" : "false");
     response += "}";
     Serial.println(response);
+}
+
+void CommandProcessor::sendPlainTextSensors() {
+    if (!sensorManager) {
+        Serial.println("ERROR:NO_SENSOR_MANAGER");
+        return;
+    }
+    
+    // Ultrasónico arenero - solo 1 o 0 según presencia del gato
+    float litterDist = sensorManager->getLitterboxDistance();
+    bool catDetected = (litterDist > 0.0f && litterDist <= 8.0f);
+    Serial.println("LUT_001:" + String(catDetected ? "1" : "0"));
+    
+    // DHT (Temperatura)
+    float temp = sensorManager->getLitterboxTemperature();
+    Serial.println("DHT_001:" + String(temp));
+    
+    // DHT (Humedad)
+    float hum = sensorManager->getLitterboxHumidity();
+    Serial.println("DHT_001:" + String(hum));
+    
+    // MQ2 (Gas) - CORREGIR: usar el método público del SensorManager
+    float gas = sensorManager->getLitterboxGasPPM();  // ✅ CAMBIAR
+    Serial.println("MQ2_001:" + String(gas));
+    
+    // Ultrasónico comedero (distancia al gato)
+    float feederCatDist = sensorManager->getFeederCatDistance();
+    Serial.println("UTS_001:" + String(feederCatDist));
+    
+    // Ultrasónico comedero (distancia a la comida)
+    float feederFoodDist = sensorManager->getFeederFoodDistance();
+    Serial.println("UTS_002:" + String(feederFoodDist));
+    
+    // Peso comedero
+    float feederWeight = sensorManager->getFeederWeight();
+    Serial.println("WIT_001:" + String(feederWeight));
+    
+    // Estado agua
+    String waterLevel = sensorManager->getWaterLevel();
+    Serial.println("WLV_001:" + String(waterLevel == "FLOOD" ? "1" : "0"));
+
+    // IR agua (detección de gato)
+    bool catDrinking = sensorManager->isCatDrinking();
+    Serial.println("WIR_001:" + String(catDrinking ? "1" : "0"));
 }
 
 void CommandProcessor::setLitterboxReady() {
@@ -174,9 +219,9 @@ void CommandProcessor::controlFeederMotor(bool on) {
             manualFeederControl = false;
 
             String reason = "SENSOR_CHECK_FAILED";
-            if (storageDistance <= 0 || storageDistance >= 13.0) {
+            if (storageDistance <= 0 || storageDistance >= 8.0) {
                 reason = "NO_FOOD_IN_STORAGE";
-            } else if (plateDistance > 0 && plateDistance <= 2.0) {
+            } else if (plateDistance > 0 && plateDistance <= 1.0) {
                 reason = "PLATE_ALREADY_FULL";
             }
 
@@ -199,22 +244,30 @@ bool CommandProcessor::isCatPresent() {
     if (!sensorManager) return false;
     float feederDist = sensorManager->getFeederCatDistance();
     float litterDist = sensorManager->getLitterboxDistance();
+    Serial.print(litterDist);
+    Serial.print("----------------------distancia");
     bool feederDetect = (feederDist > 0.0f && feederDist < 10.0f);
-    bool litterDetect = (litterDist > 0.0f && litterDist < 15.0f);
-    return feederDetect || litterDetect;
+    bool litterDetect = (litterDist > 0.0f && litterDist <= 8.0f);  // ✅ CORREGIDO
+    Serial.print(litterDetect);
+    return litterDetect;
 }
 
 bool CommandProcessor::isLitterboxSafeToClean() {
     if (!sensorManager) return false;
-    //float ppm = sensorManager->getLitterboxGasPPM();
+    // float ppm = sensorManager->getLitterboxGasPPM();
     // bool gasOk = (ppm >= 0.0f && ppm < 100.0f); // ajusta umbral
-    return !isCatPresent(); // && gasOk
+    // Serial.println(ppm);
+    // Serial.println("----------------------ppm");
+    // Serial.println(gasOk);
+    // Serial.println("----------------------gas");
+    return !isCatPresent(); //&& gasOk;
 }
 
 bool CommandProcessor::isLitterboxSafeToOperate() {
     if (!sensorManager) return false;
     // float ppm = sensorManager->getLitterboxGasPPM();
     // bool gasOk = (ppm >= 0.0f && ppm < 150.0f); // ajusta umbral
+    Serial.println(isCatPresent() ? "{\"safety_check\":\"CAT_DETECTED\"}" : "{\"safety_check\":\"NO_CAT_DETECTED\"}");
     return !isCatPresent(); //&& gasOk;
 }
 

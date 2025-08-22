@@ -52,7 +52,7 @@ SensorManager::~SensorManager() {
 }
 
 bool SensorManager::begin() {
-    Serial.println("{\"sensor_manager\":\"INITIALIZING\"}");
+    // Serial.println("{\"sensor_manager\":\"INITIALIZING\"}");
 
     bool ultrasonicOK    = (ultrasonicSensor != nullptr) ? ultrasonicSensor->initialize() : false;
     bool dhtOK           = (dhtSensor != nullptr) ? dhtSensor->initialize() : false;
@@ -68,20 +68,20 @@ bool SensorManager::begin() {
     bool waterPumpOK     = (waterPump != nullptr) ? waterPump->initialize() : false;
     bool waterIROK       = (waterIRSensor != nullptr) ? waterIRSensor->initialize() : false;
 
-    Serial.println("{\"sensor\":\"LITTERBOX_ULTRASONIC\",\"status\":\"" + String(ultrasonicOK ? "OK" : "FAILED") + "\"}");
-    Serial.println("{\"sensor\":\"DHT\",\"status\":\"" + String(dhtOK ? "OK" : "FAILED") + "\"}");
-    Serial.println("{\"sensor\":\"MQ2\",\"status\":\"" + String(mq2OK ? "OK" : "FAILED") + "\"}");
-    Serial.println("{\"sensor\":\"LITTERBOX_MOTOR\",\"status\":\"" + String(litterboxMotorOK ? "OK" : "FAILED") + "\"}");
-    Serial.println("{\"sensor\":\"FEEDER_WEIGHT\",\"status\":\"" + String(weightOK ? "OK" : "FAILED") + "\"}");
-    Serial.println("{\"sensor\":\"FEEDER_ULTRASONIC_CAT\",\"status\":\"" + String(feederUltr1OK ? "OK" : "FAILED") + "\"}");
-    Serial.println("{\"sensor\":\"FEEDER_ULTRASONIC_FOOD\",\"status\":\"" + String(feederUltr2OK ? "OK" : "FAILED") + "\"}");
-    Serial.println("{\"sensor\":\"FEEDER_MOTOR\",\"status\":\"" + String(feederMotorOK ? "OK" : "FAILED") + "\"}");
-    Serial.println("{\"sensor\":\"WATER_SENSOR\",\"status\":\"" + String(waterSensorOK ? "OK" : "FAILED") + "\"}");
-    Serial.println("{\"sensor\":\"WATER_PUMP\",\"status\":\"" + String(waterPumpOK ? "OK" : "FAILED") + "\"}");
-    Serial.println("{\"sensor\":\"WATER_IR\",\"status\":\"" + String(waterIROK ? "OK" : "FAILED") + "\"}");
+    // Serial.println("{\"sensor\":\"LITTERBOX_ULTRASONIC\",\"status\":\"" + String(ultrasonicOK ? "OK" : "FAILED") + "\"}");
+    // Serial.println("{\"sensor\":\"DHT\",\"status\":\"" + String(dhtOK ? "OK" : "FAILED") + "\"}");
+    // Serial.println("{\"sensor\":\"MQ2\",\"status\":\"" + String(mq2OK ? "OK" : "FAILED") + "\"}");
+    // Serial.println("{\"sensor\":\"LITTERBOX_MOTOR\",\"status\":\"" + String(litterboxMotorOK ? "OK" : "FAILED") + "\"}");
+    // Serial.println("{\"sensor\":\"FEEDER_WEIGHT\",\"status\":\"" + String(weightOK ? "OK" : "FAILED") + "\"}");
+    // Serial.println("{\"sensor\":\"FEEDER_ULTRASONIC_CAT\",\"status\":\"" + String(feederUltr1OK ? "OK" : "FAILED") + "\"}");
+    // Serial.println("{\"sensor\":\"FEEDER_ULTRASONIC_FOOD\",\"status\":\"" + String(feederUltr2OK ? "OK" : "FAILED") + "\"}");
+    // Serial.println("{\"sensor\":\"FEEDER_MOTOR\",\"status\":\"" + String(feederMotorOK ? "OK" : "FAILED") + "\"}");
+    // Serial.println("{\"sensor\":\"WATER_SENSOR\",\"status\":\"" + String(waterSensorOK ? "OK" : "FAILED") + "\"}");
+    // Serial.println("{\"sensor\":\"WATER_PUMP\",\"status\":\"" + String(waterPumpOK ? "OK" : "FAILED") + "\"}");
+    // Serial.println("{\"sensor\":\"WATER_IR\",\"status\":\"" + String(waterIROK ? "OK" : "FAILED") + "\"}");
 
     initialized = true;
-    Serial.println("{\"sensor_manager\":\"READY\",\"all_systems\":\"INITIALIZED\"}");
+    // Serial.println("{\"sensor_manager\":\"READY\",\"all_systems\":\"INITIALIZED\"}");
     return initialized;
 }
 
@@ -253,5 +253,5 @@ String SensorManager::getAllReadings() {
 }
 
 void SensorManager::printAllSensorReadings() {
-    Serial.println(getAllReadings());
+    // Serial.println(getAllReadings());
 }

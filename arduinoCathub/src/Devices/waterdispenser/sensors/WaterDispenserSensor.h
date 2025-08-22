@@ -3,9 +3,9 @@
 #define WATER_DISPENSER_SENSOR_H
 
 // 🔥 UMBRALES CORREGIDOS PARA FUNCIONAMIENTO AUTOMÁTICO
-#define DRY_THRESHOLD 200     // Sin agua (bomba se ACTIVA)
-#define WET_THRESHOLD 600     // Medio lleno (bomba se ACTIVA aún)  
-#define FLOOD_THRESHOLD 900   // Lleno al máximo (bomba se DETIENE)
+#define DRY_THRESHOLD 100     // Sin agua (bomba se ACTIVA)
+#define WET_THRESHOLD 250     // Medio lleno (bomba se ACTIVA aún)  
+#define FLOOD_THRESHOLD 450   // Lleno al máximo (bomba se DETIENE)
 
 #include <Arduino.h>
 #include "../config/SensorIDs.h"

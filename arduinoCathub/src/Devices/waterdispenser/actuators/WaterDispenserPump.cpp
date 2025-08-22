@@ -10,13 +10,13 @@ bool WaterDispenserPump::initialize() {
     digitalWrite(PUMP_PIN, LOW);  // 🔥 Cambiar analogWrite por digitalWrite
     pumpReady = true;
     pumpRunning = false;
-    Serial.println("{\"pump_init\":\"SUCCESS\",\"pin\":" + String(PUMP_PIN) + ",\"mode\":\"DIGITAL\"}");
+    // Serial.print("{\"pump_init\":\"SUCCESS\",\"pin\":" + String(PUMP_PIN) + ",\"mode\":\"DIGITAL\"}");
     return true;
 }
 
 void WaterDispenserPump::turnOn(unsigned long duration) {
     if (!pumpReady || !pumpEnabled) {
-        Serial.println("{\"pump_error\":\"CANNOT_START\",\"ready\":" + String(pumpReady) + ",\"enabled\":" + String(pumpEnabled) + "}");
+        // Serial.print("{\"pump_error\":\"CANNOT_START\",\"ready\":" + String(pumpReady) + ",\"enabled\":" + String(pumpEnabled) + "}");
         return;
     }
     
@@ -29,8 +29,8 @@ void WaterDispenserPump::turnOn(unsigned long duration) {
     pumpRunning = true;
     digitalWrite(PUMP_PIN, HIGH);  // 🔥 Cambiar analogWrite por digitalWrite HIGH
     
-    Serial.println("{\"pump_action\":\"TURNED_ON\",\"pin\":" + String(PUMP_PIN) + 
-                   ",\"duration_ms\":" + String(duration) + ",\"digital_state\":\"HIGH\"}");
+    // Serial.print("{\"pump_action\":\"TURNED_ON\",\"pin\":" + String(PUMP_PIN) + 
+                   // ",\"duration_ms\":" + String(duration) + ",\"digital_state\":\"HIGH\"}");
 }
 
 void WaterDispenserPump::turnOff() {
@@ -39,7 +39,7 @@ void WaterDispenserPump::turnOff() {
     pumpStartTime = 0;
     pumpDuration = 0;
     
-    Serial.println("{\"pump_action\":\"TURNED_OFF\",\"pin\":" + String(PUMP_PIN) + ",\"digital_state\":\"LOW\"}");
+    // Serial.print("{\"pump_action\":\"TURNED_OFF\",\"pin\":" + String(PUMP_PIN) + ",\"digital_state\":\"LOW\"}");
 }
 
 void WaterDispenserPump::setPower(int power) {
@@ -72,7 +72,7 @@ void WaterDispenserPump::update() {
     if (pumpDuration > 0) {
         unsigned long elapsed = millis() - pumpStartTime;
         if (elapsed >= pumpDuration) {
-            Serial.println("{\"pump_auto\":\"TIMEOUT_REACHED\",\"elapsed_ms\":" + String(elapsed) + "}");
+            // Serial.print("{\"pump_auto\":\"TIMEOUT_REACHED\",\"elapsed_ms\":" + String(elapsed) + "}");
             turnOff();
         }
     }
@@ -92,7 +92,7 @@ void WaterDispenserPump::emergencyStop() {
     pumpStartTime = 0;
     pumpDuration = 0;
     
-    Serial.println("{\"pump_action\":\"EMERGENCY_STOP\",\"pin\":" + String(PUMP_PIN) + "}");
+    // Serial.print("{\"pump_action\":\"EMERGENCY_STOP\",\"pin\":" + String(PUMP_PIN) + "}");
 }
 
 const char* WaterDispenserPump::getActuatorId() {

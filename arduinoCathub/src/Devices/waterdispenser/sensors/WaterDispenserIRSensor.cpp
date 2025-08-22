@@ -33,9 +33,9 @@ void WaterDispenserIRSensor::update() {
         // Debug cada 5 segundos o cuando cambie el estado
         static unsigned long lastDebugTime = 0;
         if ((now - lastDebugTime > 5000) || (currentDetection != objectDetected)) {
-            Serial.println("{\"debug\":\"IR_SENSOR\",\"pin\":" + String(IR_PIN) + 
-                           ",\"raw_value\":" + String(currentReading) + 
-                           ",\"detected\":" + String(currentDetection) + "}");
+            // Serial.println("{\"debug\":\"IR_SENSOR\",\"pin\":" + String(IR_PIN) + 
+                        //    ",\"raw_value\":" + String(currentReading) + 
+                        //    ",\"detected\":" + String(currentDetection) + "}");
             lastDebugTime = now;
         }
         

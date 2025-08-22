@@ -25,12 +25,12 @@ bool LitterboxDHTSensor::initialize() {
         sensorReady = true;
         lastTemperature = testTemp;
         lastHumidity = testHum;
-        Serial.println("{\"dht\":\"INITIALIZED\",\"temp\":" + String(testTemp) + ",\"hum\":" + String(testHum) + "}");
+        // Serial.println("{\"dht\":\"INITIALIZED\",\"temp\":" + String(testTemp) + ",\"hum\":" + String(testHum) + "}");
         return true;
     }
 
     sensorReady = false;
-    Serial.println("{\"dht\":\"INITIALIZE_FAILED\"}");
+    // Serial.println("{\"dht\":\"INITIALIZE_FAILED\"}");
     return false;
 }
 
@@ -48,7 +48,7 @@ void LitterboxDHTSensor::update() {
             lastHumidity = hum;
         } else {
             // Mantener últimos valores válidos, y reportar en serial
-            Serial.println("{\"dht\":\"READ_ERROR\",\"temp\":" + String(temp) + ",\"hum\":" + String(hum) + "}");
+            // Serial.println("{\"dht\":\"READ_ERROR\",\"temp\":" + String(temp) + ",\"hum\":" + String(hum) + "}");
         }
 
         lastReadTime = now;

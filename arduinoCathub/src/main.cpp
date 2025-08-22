@@ -36,13 +36,13 @@ void setup() {
     Serial.begin(115200);
     while(!Serial) { delay(10); }
     
-    Serial.println(F("{\"event\":\"CATHUB_STARTING\"}"));
+    // Serial.println(F("{\"event\":\"CATHUB_STARTING\"}"));
     
     // 🔥 INICIALIZAR SISTEMAS (CADA OBJETO EXISTE UNA SOLA VEZ)
     sensorManager.begin();
     commandProcessor.initialize();
     
-    Serial.println(F("{\"event\":\"CATHUB_READY\",\"message\":\"Esperando comandos de la Ras\"}"));
+    // Serial.println(F("{\"event\":\"CATHUB_READY\",\"message\":\"Esperando comandos de la Ras\"}"));
     
     delay(2000);
 }

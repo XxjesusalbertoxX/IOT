@@ -115,7 +115,7 @@ void LitterboxMQ2Sensor::calibrateRo(int samples, unsigned long delayMs) {
     float avgRs = (float)(sumRs / samples);
     // Usamos CLEAN_AIR_FACTOR como aproximación; recalibrar en tu entorno
     Ro = avgRs / CLEAN_AIR_FACTOR;
-    Serial.println("{\"mq2\":\"Ro_calibrated\",\"avgRs\":" + String(avgRs) + ",\"Ro\":" + String(Ro) + "}");
+    // Serial.println("{\"mq2\":\"Ro_calibrated\",\"avgRs\":" + String(avgRs) + ",\"Ro\":" + String(Ro) + "}");
 }
 
 float LitterboxMQ2Sensor::getRo() const { return Ro; }

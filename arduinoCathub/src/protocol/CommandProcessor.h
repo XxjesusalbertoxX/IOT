@@ -31,6 +31,7 @@ private:
     void controlFeederMotor(bool on);
 
     void sendAllDevicesStatus();
+    void sendPlainTextSensors();
 
     // seguridad
     bool isCatPresent();
@@ -46,6 +47,7 @@ public:
     bool initialize();
     void processCommand(String command);
     void update();
+    
 
     int getLitterboxState() const { return litterboxState; }
 };
